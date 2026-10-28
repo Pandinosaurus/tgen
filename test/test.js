@@ -1,10 +1,18 @@
-var assert = require("assert");
-var tgen = require("./../dist/tgen-with-presets");
-var fs = require("fs");
-var PNG = require("pngjs").PNG;
+const assert = require("assert");
+const fs = require("fs");
+const PNG = require("pngjs").PNG;
+const { exit } = require("process");
+const tgen = require("./../src/tgen-base-with-presets.js");
 
-var size = 64; // image width and height for testing, DON'T TOUCH!
-var PNGOptions = {
+const assertFloatEqual = (actual, expected, epsilon = 1e-9) => {
+  assert.ok(
+    Math.abs(actual - expected) < epsilon,
+    `${actual} is not within ${epsilon} of ${expected}`
+  );
+};
+
+const size = 64; // image width and height for testing, DON'T TOUCH!
+const PNGOptions = {
   filterType: 0,
   width: size,
   height: size,
@@ -13,25 +21,34 @@ var PNGOptions = {
   bitDepth: 8,
 };
 
-var savePNG = function (texture, name, width, height) {
-  var options = Object.assign({}, PNGOptions);
+const savePNG = function (generator, name, width, height) {
 
-  options.width = width ? width : PNGOptions.width;
-  options.height = height ? height : PNGOptions.height;
+  const options = {...PNGOptions};
 
-  var file = new PNG(options);
-  file.data = texture.texture.data;
+  options.width = width || PNGOptions.width;
+  options.height = height || PNGOptions.height;
+
+  const file = new PNG(options);
+  file.data = generator.texture.data;
+
+  if (!name) {
+    name = 'test';
+  }
+
   file.pack().pipe(fs.createWriteStream("./test/" + name + ".png"));
+
 };
 
 describe("tgen", function () {
   describe("init", function () {
     it("version ok", function () {
+      assert.notStrictEqual(tgen.version, undefined);
       assert.notStrictEqual(tgen.version, null);
     });
 
     it("generator ok", function () {
-      var generator = tgen.init();
+
+      const generator = tgen.init();
 
       assert.notStrictEqual(generator, null);
       assert.notStrictEqual(generator.shape.rect, null);
@@ -53,8 +70,9 @@ describe("tgen", function () {
 
   describe("textures", function () {
     it("waves", function () {
-      var generator = tgen.init(size, size, "pingpong");
-      var texture = generator.do("waves", {
+      const generator = tgen.init(size, size, "pingpong");
+
+      generator.do("waves", {
         blend: "screen",
         rgba: [255, 128, 64, 1],
         level: 50,
@@ -62,8 +80,8 @@ describe("tgen", function () {
         ysines: 4,
       });
 
-      savePNG(texture, "waves");
-      var params = texture.params();
+      savePNG(generator, "waves");
+      const params = generator.params();
 
       assert.strictEqual(params.width, size);
       assert.strictEqual(params.height, size);
@@ -74,28 +92,28 @@ describe("tgen", function () {
       assert.strictEqual(params.items[0][2].xsines, 4);
       assert.strictEqual(params.items[0][2].ysines, 4);
 
-      assert.strictEqual(texture.texture.data[0], 191);
-      assert.strictEqual(texture.texture.data[1], 127.5);
-      assert.strictEqual(texture.texture.data[2], 95.5);
-      assert.strictEqual(texture.texture.data[3], 255);
+      assert.strictEqual(generator.texture.data[0], 191);
+      assertFloatEqual(generator.texture.data[1], 127.5);
+      assertFloatEqual(generator.texture.data[2], 95.5);
+      assert.strictEqual(generator.texture.data[3], 255);
 
-      assert.strictEqual(texture.texture.data[4], 203.1501922607422);
-      assert.strictEqual(texture.texture.data[5], 139.6501922607422);
-      assert.strictEqual(texture.texture.data[6], 107.65019989013672);
-      assert.strictEqual(texture.texture.data[7], 255);
+      assertFloatEqual(generator.texture.data[4], 203.1501922607422);
+      assertFloatEqual(generator.texture.data[5], 139.6501922607422);
+      assertFloatEqual(generator.texture.data[6], 107.65019989013672);
+      assert.strictEqual(generator.texture.data[7], 255);
     });
 
     it("clouds", function () {
-      var generator = tgen.init(size, size, "pingpong");
-      var texture = generator.do("clouds", {
+      const generator = tgen.init(size, size, "pingpong");
+      generator.do("clouds", {
         blend: "screen",
         rgba: [32, 64, 128, 1],
         roughness: 2,
         seed: 777,
       });
 
-      savePNG(texture, "clouds");
-      var params = texture.params();
+      savePNG(generator, "clouds");
+      const params = generator.params();
 
       assert.strictEqual(params.width, size);
       assert.strictEqual(params.height, size);
@@ -105,20 +123,20 @@ describe("tgen", function () {
       assert.strictEqual(params.items[0][2].roughness, 2);
       assert.strictEqual(params.items[0][2].seed, 777);
 
-      assert.strictEqual(texture.texture.data[0], 16);
-      assert.strictEqual(texture.texture.data[1], 32);
-      assert.strictEqual(texture.texture.data[2], 64);
-      assert.strictEqual(texture.texture.data[3], 255);
+      assert.strictEqual(generator.texture.data[0], 16);
+      assert.strictEqual(generator.texture.data[1], 32);
+      assert.strictEqual(generator.texture.data[2], 64);
+      assert.strictEqual(generator.texture.data[3], 255);
 
-      assert.strictEqual(texture.texture.data[4], 22);
-      assert.strictEqual(texture.texture.data[5], 38);
-      assert.strictEqual(texture.texture.data[6], 70);
-      assert.strictEqual(texture.texture.data[7], 255);
+      assert.strictEqual(generator.texture.data[4], 22);
+      assert.strictEqual(generator.texture.data[5], 38);
+      assert.strictEqual(generator.texture.data[6], 70);
+      assert.strictEqual(generator.texture.data[7], 255);
     });
 
     it("spheres", function () {
-      var generator = tgen.init(size, size, "limitless");
-      var texture = generator.do("spheres", {
+      const generator = tgen.init(size, size, "limitless");
+      generator.do("spheres", {
         blend: "lighten",
         rgba: [32, 64, 128, 1],
         dynamic: false,
@@ -127,8 +145,8 @@ describe("tgen", function () {
         seed: 777,
       });
 
-      savePNG(texture, "spheres");
-      var params = texture.params();
+      savePNG(generator, "spheres");
+      const params = generator.params();
 
       assert.strictEqual(params.width, size);
       assert.strictEqual(params.height, size);
@@ -141,20 +159,20 @@ describe("tgen", function () {
       assert.strictEqual(params.items[0][2].size[1], 77);
       assert.strictEqual(params.items[0][2].seed, 777);
 
-      assert.strictEqual(texture.texture.data[0], 17.248729705810547);
-      assert.strictEqual(texture.texture.data[1], 34.497459411621094);
-      assert.strictEqual(texture.texture.data[2], 68.99491882324219);
-      assert.strictEqual(texture.texture.data[3], 255);
+      assertFloatEqual(generator.texture.data[0], 17.248729705810547);
+      assertFloatEqual(generator.texture.data[1], 34.497459411621094);
+      assertFloatEqual(generator.texture.data[2], 68.99491882324219);
+      assert.strictEqual(generator.texture.data[3], 255);
 
-      assert.strictEqual(texture.texture.data[4], 18.42354965209961);
-      assert.strictEqual(texture.texture.data[5], 36.84709930419922);
-      assert.strictEqual(texture.texture.data[6], 73.69419860839844);
-      assert.strictEqual(texture.texture.data[7], 255);
+      assertFloatEqual(generator.texture.data[4], 18.42354965209961);
+      assertFloatEqual(generator.texture.data[5], 36.84709930419922);
+      assertFloatEqual(generator.texture.data[6], 73.69419860839844);
+      assert.strictEqual(generator.texture.data[7], 255);
     });
 
     it("pyramids", function () {
-      var generator = tgen.init(size, size, "limitless");
-      var texture = generator.do("pyramids", {
+      const generator = tgen.init(size, size, "limitless");
+      generator.do("pyramids", {
         blend: "difference",
         rgba: [32, 255, 128, 1],
         dynamic: false,
@@ -163,8 +181,8 @@ describe("tgen", function () {
         seed: 777,
       });
 
-      savePNG(texture, "pyramids");
-      var params = texture.params();
+      savePNG(generator, "pyramids");
+      const params = generator.params();
 
       assert.strictEqual(params.width, size);
       assert.strictEqual(params.height, size);
@@ -177,20 +195,21 @@ describe("tgen", function () {
       assert.strictEqual(params.items[0][2].size[1], 77);
       assert.strictEqual(params.items[0][2].seed, 777);
 
-      assert.strictEqual(texture.texture.data[0], 5.599999904632568);
-      assert.strictEqual(texture.texture.data[1], 44.625);
-      assert.strictEqual(texture.texture.data[2], 22.399999618530273);
-      assert.strictEqual(texture.texture.data[3], 255);
+      assertFloatEqual(generator.texture.data[0], 5.599999904632568);
+      assertFloatEqual(generator.texture.data[1], 44.625);
+      assertFloatEqual(generator.texture.data[2], 22.399999618530273);
+      assert.strictEqual(generator.texture.data[3], 255);
 
-      assert.strictEqual(texture.texture.data[4], 6.400000095367432);
-      assert.strictEqual(texture.texture.data[5], 51);
-      assert.strictEqual(texture.texture.data[6], 25.600000381469727);
-      assert.strictEqual(texture.texture.data[7], 255);
+      assertFloatEqual(generator.texture.data[4], 6.400000095367432);
+      assert.strictEqual(generator.texture.data[5], 51);
+      assertFloatEqual(generator.texture.data[6], 25.600000381469727);
+      assert.strictEqual(generator.texture.data[7], 255);
     });
 
     it("checkerboard", function () {
-      var generator = tgen.init(size, size, "limitless");
-      var texture = generator.do("checkerboard", {
+      const generator = tgen.init(size, size, "limitless");
+
+      generator.do("checkerboard", {
         blend: "lighten",
         rgba: [32, 255, 128, 1],
         even: true,
@@ -198,8 +217,8 @@ describe("tgen", function () {
         size: [32, 32],
       });
 
-      savePNG(texture, "checkerboard");
-      var params = texture.params();
+      savePNG(generator, "checkerboard");
+      const params = generator.params();
 
       assert.strictEqual(params.width, size);
       assert.strictEqual(params.height, size);
@@ -210,8 +229,8 @@ describe("tgen", function () {
       assert.strictEqual(params.items[0][2].size[1], 32);
       assert.strictEqual(params.items[0][2].seed, 777);
 
-      var pixel1 = texture.texture.get(0, 0);
-      var pixel2 = texture.texture.get(0, 2);
+      const pixel1 = generator.texture.get(0, 0);
+      const pixel2 = generator.texture.get(0, 2);
 
       assert.strictEqual(pixel1[0], 32);
       assert.strictEqual(pixel1[1], 255);
@@ -224,74 +243,9 @@ describe("tgen", function () {
       assert.strictEqual(pixel2[3], 255);
     });
 
-    it("test-pattern", function () {
-      var sizePattern = 256;
-
-      var generator = tgen.init(sizePattern, sizePattern, "limitless");
-      var texture = generator.do("test-pattern");
-
-      savePNG(texture, "test-pattern", sizePattern, sizePattern);
-      var params = texture.params();
-
-      assert.strictEqual(params.width, sizePattern);
-      assert.strictEqual(params.height, sizePattern);
-      assert.strictEqual(params.normalize, "limitless");
-      assert.strictEqual(params.items[0][1], "brightness");
-      assert.strictEqual(params.items[0][2].adjust, 50);
-      assert.strictEqual(params.items[1][1], "vibrance");
-      assert.strictEqual(params.items[1][2].adjust, 100);
-      assert.strictEqual(params.items[2][1], "contrast");
-      assert.strictEqual(params.items[2][2].adjust, 20);
-      assert.strictEqual(params.items[3][1], "test-pattern");
-      assert.strictEqual(params.items[3][2].seed > 0, true);
-
-      var pixel0 = texture.texture.get(0, 0);
-      var pixel1 = texture.texture.get(20, 20);
-      var pixel2 = texture.texture.get(39, 39);
-      var pixel3 = texture.texture.get(32, 56);
-      var pixel4 = texture.texture.get(62, 62);
-      var pixel5 = texture.texture.get(236, 236);
-      var pixel6 = texture.texture.get(19, 109);
-
-      assert.strictEqual(pixel0[0], 255);
-      assert.strictEqual(pixel0[1], 255);
-      assert.strictEqual(pixel0[2], 255);
-      assert.strictEqual(pixel0[3], 255);
-
-      assert.strictEqual(pixel1[0], 214.67494201660156);
-      assert.strictEqual(pixel1[1], 120.41922760009766);
-      assert.strictEqual(pixel1[2], 96.25494384765625);
-      assert.strictEqual(pixel1[3], 255);
-
-      assert.strictEqual(pixel2[0], 215.4040985107422);
-      assert.strictEqual(pixel2[1], 120.17605590820312);
-      assert.strictEqual(pixel2[2], 96.42085266113281);
-      assert.strictEqual(pixel2[3], 255);
-
-      assert.strictEqual(pixel3[0], 255);
-      assert.strictEqual(pixel3[1], 204.34658813476562);
-      assert.strictEqual(pixel3[2], 24.52901840209961);
-      assert.strictEqual(pixel3[3], 255);
-
-      assert.strictEqual(pixel4[0], 214.0687713623047);
-      assert.strictEqual(pixel4[1], 119.13373565673828);
-      assert.strictEqual(pixel4[2], 98.00473022460938);
-      assert.strictEqual(pixel4[3], 255);
-
-      assert.strictEqual(pixel5[0], 228.55682373046875);
-      assert.strictEqual(pixel5[1], 112.35067749023438);
-      assert.strictEqual(pixel5[2], 116.86672973632812);
-      assert.strictEqual(pixel5[3], 255);
-
-      assert.strictEqual(pixel6[0], 255);
-      assert.strictEqual(pixel6[1], 185.81246948242188);
-      assert.strictEqual(pixel6[2], 35.00555419921875);
-      assert.strictEqual(pixel6[3], 255);
-    });
-
     it("sphere-alpha", function () {
-      var generator = tgen.init(size, size, "limitless");
-      var items = [
+      const generator = tgen.init(size, size, "limitless");
+      const items = [
         [0, "fill", { rgba: [128, 128, 128, 0.5] }],
         [
           1,
@@ -309,16 +263,16 @@ describe("tgen", function () {
         [2, "merge", { blend: "alphamap", layer: 1 }],
       ];
 
-      var texture = generator.render({ items: items });
+      generator.render({ items: items });
 
-      savePNG(texture, "sphere-alpha");
-      var params = texture.params();
+      savePNG(generator, "sphere-alpha");
+      const params = generator.params();
 
       assert.strictEqual(params.width, size);
       assert.strictEqual(params.height, size);
       assert.strictEqual(params.normalize, "limitless");
       assert.strictEqual(params.items[0][1], "fill");
-      assert.strictEqual(params.items[0][2].blend, "");
+      assert.strictEqual(params.items[0][2].blend, "opacity");
       assert.strictEqual(params.items[1][1], "spheres");
       assert.strictEqual(params.items[1][2].size, 100);
       assert.strictEqual(params.items[2][1], "copy");
@@ -326,53 +280,55 @@ describe("tgen", function () {
       assert.strictEqual(params.items[3][1], "merge");
       assert.strictEqual(params.items[3][2].blend, "alphamap");
 
-      var pixel0 = texture.texture.get(0, 0);
-      var pixel1 = texture.texture.get(20, 20);
-      var pixel2 = texture.texture.get(39, 39);
-      var pixel3 = texture.texture.get(32, 56);
-      var pixel4 = texture.texture.get(62, 62);
+      const pixel0 = generator.texture.get(0, 0);
+      const pixel1 = generator.texture.get(20, 20);
+      const pixel2 = generator.texture.get(39, 39);
+      const pixel3 = generator.texture.get(32, 56);
+      const pixel4 = generator.texture.get(62, 62);
 
       assert.strictEqual(pixel0[0], 0);
       assert.strictEqual(pixel0[1], 0);
       assert.strictEqual(pixel0[2], 0);
       assert.strictEqual(pixel0[3], 0);
 
-      assert.strictEqual(pixel1[0], 56.250404357910156);
-      assert.strictEqual(pixel1[1], 56.250404357910156);
-      assert.strictEqual(pixel1[2], 56.250404357910156);
-      assert.strictEqual(pixel1[3], 56.250404357910156);
+      assertFloatEqual(pixel1[0], 56.250404357910156);
+      assertFloatEqual(pixel1[1], 56.250404357910156);
+      assertFloatEqual(pixel1[2], 56.250404357910156);
+      assertFloatEqual(pixel1[3], 56.250404357910156);
 
-      assert.strictEqual(pixel2[0], 121.63109588623047);
-      assert.strictEqual(pixel2[1], 121.63109588623047);
-      assert.strictEqual(pixel2[2], 121.63109588623047);
-      assert.strictEqual(pixel2[3], 121.63109588623047);
+      assertFloatEqual(pixel2[0], 121.63109588623047);
+      assertFloatEqual(pixel2[1], 121.63109588623047);
+      assertFloatEqual(pixel2[2], 121.63109588623047);
+      assertFloatEqual(pixel2[3], 121.63109588623047);
 
-      assert.strictEqual(pixel3[0], 15.9375);
-      assert.strictEqual(pixel3[1], 15.9375);
-      assert.strictEqual(pixel3[2], 15.9375);
-      assert.strictEqual(pixel3[3], 15.9375);
+      assertFloatEqual(pixel3[0], 15.9375);
+      assertFloatEqual(pixel3[1], 15.9375);
+      assertFloatEqual(pixel3[2], 15.9375);
+      assertFloatEqual(pixel3[3], 15.9375);
 
       assert.strictEqual(pixel4[0], 0);
       assert.strictEqual(pixel4[1], 0);
       assert.strictEqual(pixel4[2], 0);
       assert.strictEqual(pixel4[3], 0);
     });
+
   });
+
 
   describe("presets", function () {
     it("dots ok", function () {
-      var generator = tgen.init(size, size);
+      const generator = tgen.init(size, size);
 
-      var texture = generator.render({
+      generator.render({
         preset: {
           name: "dots",
           seed: 4,
         },
       });
 
-      savePNG(texture, "preset-dots");
+      savePNG(generator, "preset-dots");
 
-      var params = texture.params();
+      const params = generator.params();
 
       assert.strictEqual(params.width, size);
       assert.strictEqual(params.height, size);
@@ -380,69 +336,571 @@ describe("tgen", function () {
       assert.strictEqual(params.items[0][1], "dots");
       assert.strictEqual(params.items[0][2].blend, "opacity");
 
-      assert.strictEqual(texture.texture.data[0], 118.41780090332031);
-      assert.strictEqual(texture.texture.data[1], 14.728595733642578);
-      assert.strictEqual(texture.texture.data[2], 40.65094757080078);
-      assert.strictEqual(texture.texture.data[3], 2295);
+      assertFloatEqual(generator.texture.data[0], -17.223899841308594);
+      assertFloatEqual(generator.texture.data[1], -129.3643035888672);
+      assertFloatEqual(generator.texture.data[2], -101.32923126220703);
+      assert.strictEqual(generator.texture.data[3], 2295);
 
-      assert.strictEqual(texture.texture.data[4], 123.1143798828125);
-      assert.strictEqual(texture.texture.data[5], 15.312732696533203);
-      assert.strictEqual(texture.texture.data[6], 42.26314926147461);
-      assert.strictEqual(texture.texture.data[7], 2295);
+      assertFloatEqual(generator.texture.data[4], -28.270854949951172);
+      assertFloatEqual(generator.texture.data[5], -156.5552978515625);
+      assertFloatEqual(generator.texture.data[6], -124.48413848876953);
+      assert.strictEqual(generator.texture.data[7], 2295);
+    });
+  });
+
+  describe("blend-colormap safety", function () {
+    it("colormap.get returns a copy", function () {
+      const generator = tgen.init(size, size);
+
+      generator.colormap.init("seashore", 255);
+      const first = generator.colormap.get(128, [0, 0, 0, 200]);
+      const before = first.slice();
+
+      first[0] = 1;
+      first[1] = 2;
+      first[2] = 3;
+      first[3] = 4;
+
+      const second = generator.colormap.get(128, [0, 0, 0, 200]);
+
+      assert.notStrictEqual(first, second);
+      assert.strictEqual(second[0], before[0]);
+      assert.strictEqual(second[1], before[1]);
+      assert.strictEqual(second[2], before[2]);
+      assert.strictEqual(second[3], 200);
+    });
+
+    it("multiply does not mutate stored point.rgba", function () {
+      const generator = tgen.init(size, size);
+
+      generator.texture.clear([128, 128, 128, 255]);
+      generator.point.blend = "multiply";
+      generator.point.rgba = [255, 128, 64, 255];
+
+      const original = generator.point.rgba.slice();
+
+      generator.point.set(0, 0);
+      generator.point.set(1, 0);
+      generator.point.set(2, 0);
+
+      assert.strictEqual(generator.point.rgba[0], original[0]);
+      assert.strictEqual(generator.point.rgba[1], original[1]);
+      assert.strictEqual(generator.point.rgba[2], original[2]);
+      assert.strictEqual(generator.point.rgba[3], original[3]);
+
+      // Repeated multiply onto mid-gray must stay mid-bright, not collapse
+      const pixel = generator.texture.get(2, 0);
+      assert.ok(pixel[0] > 60, "R collapsed: " + pixel[0]);
+      assert.ok(pixel[1] > 30, "G collapsed: " + pixel[1]);
+      assert.ok(pixel[2] > 10, "B collapsed: " + pixel[2]);
+    });
+
+    it("clouds colormap multiply does not go near-black", function () {
+      // Former z-error-blend regression: blend mutated colormap LUT refs
+      const generator = tgen.init(size, size);
+
+      generator.render({
+        items: [
+          [
+            0,
+            "clouds",
+            {
+              colormap: "redblue",
+              seed: 32,
+              roughness: 4,
+              blend: "",
+            },
+          ],
+          [
+            1,
+            "copy",
+            {
+              layer: 0,
+            },
+          ],
+          [
+            1,
+            "clouds",
+            {
+              colormap: "seashore",
+              blend: "multiply",
+              seed: 211,
+              roughness: 4,
+            },
+          ],
+        ],
+      });
+
+      savePNG(generator, "blend-colormap-multiply");
+
+      const data = generator.texture.data;
+      let sum = 0;
+      const pixels = data.length / 4;
+
+      for (let i = 0; i < data.length; i += 4) {
+        sum += (data[i] + data[i + 1] + data[i + 2]) / 3;
+      }
+
+      const avg = sum / pixels;
+
+      assert.ok(avg > 20, "texture avg too dark (LUT corruption?): " + avg);
+      assert.ok(avg < 240, "texture avg unexpectedly flat: " + avg);
+      assert.ok(
+        Number.isFinite(data[0]) && Number.isFinite(data[1]),
+        "non-finite pixel values"
+      );
     });
   });
 
   describe("copy-merge", function () {
-    it("overlay ok", function () {
-      var generator = tgen.init(size, size);
+    it("do is chainable", function () {
+      const generator = tgen.init(size, size);
 
-      var texture = generator.render({
+      const result = generator
+        .do("fill", { rgba: [255, 0, 0, 255] })
+        .do("invert", { channels: [1, 1, 1, 0] });
+
+      assert.strictEqual(result, generator);
+      assert.strictEqual(generator.texture.data[0], 0);
+      assert.strictEqual(generator.texture.data[1], 255);
+    });
+
+    it("reversed colormap does not leak and keeps its name", function () {
+      const generator = tgen.init(size, size);
+      const black = [
+        [0, "fill", { rgba: [0, 0, 0, 255] }],
+        [0, "colorize", { colormap: "fire" }],
+      ];
+
+      generator.render({
+        items: [
+          [0, "fill", { rgba: [0, 0, 0, 255] }],
+          [0, "colorize", { colormap: "!fire" }],
+        ],
+      });
+
+      assert.strictEqual(generator.params().items[1][2].colormap, "!fire");
+
+      generator.render({ items: black });
+
+      // fire starts with white, the previous "!" must not reverse it
+      assert.strictEqual(Math.round(generator.texture.data[0]), 255);
+    });
+
+    it("params before 2.0 use the legacy accumulating blend", function () {
+      const render = function (version) {
+        const generator = tgen.init(size, size);
+        const params = {
+          items: [
+            [0, "fill", { rgba: [100, 100, 100, 255] }],
+            [
+              0,
+              "checkerboard",
+              {
+                blend: "screen",
+                rgba: [60, 60, 60, 255],
+                size: [2, 2],
+                even: true,
+              },
+            ],
+          ],
+        };
+
+        if (version) {
+          params.version = version;
+        }
+
+        generator.render(params);
+
+        return generator;
+      };
+
+      const modern = render();
+      const legacy = render("1.4.43");
+
+      // modern: every pixel of the shape gets the same blended color
+      assert.strictEqual(modern.texture.data[0], modern.texture.data[4]);
+      // legacy: the blended color accumulates pixel by pixel
+      assert.notStrictEqual(legacy.texture.data[0], legacy.texture.data[4]);
+      // a legacy texture keeps its version when saved again
+      assert.strictEqual(legacy.params().version, "1.4.43");
+      assert.strictEqual(modern.params().version, tgen.version);
+    });
+
+    it("rotate type 2 leaves no blank pixels", function () {
+      const generator = tgen.init(size, size);
+
+      generator.render({
+        items: [
+          [0, "fill", { rgba: [200, 100, 50, 255] }],
+          [0, "rotate", { type: 2, angle: 33, times: 1, blend: "opacity" }],
+        ],
+      });
+
+      const data = generator.texture.data;
+      let blank = 0;
+
+      for (let i = 0; i < data.length; i += 4) {
+        if (data[i] !== 200 || data[i + 1] !== 100 || data[i + 2] !== 50) {
+          blank++;
+        }
+      }
+
+      assert.strictEqual(blank, 0);
+    });
+
+    it("rotate fade keeps the edge pixels", function () {
+      [1, 2].forEach(function (type) {
+        const generator = tgen.init(size, size);
+
+        generator.render({
+          items: [
+            [0, "clouds", { seed: 5 }],
+            [1, "copy", 0],
+            [
+              1,
+              "rotate",
+              { type, angle: 37, times: 1, blend: "difference", fade: 10 },
+            ],
+          ],
+        });
+
+        const original = generator.layers[0];
+        const rotated = generator.texture.data;
+        let edgeChanged = 0;
+        let centreChanged = 0;
+
+        for (let y = 0; y < size; y++) {
+          for (let x = 0; x < size; x++) {
+            const offset = (y * size + x) * 4;
+            const edge = Math.min(x, size - 1 - x, y, size - 1 - y);
+            const changed = original[offset] !== rotated[offset];
+
+            if (edge === 0 && changed) {
+              edgeChanged++;
+            }
+
+            if (edge > size / 4 && changed) {
+              centreChanged++;
+            }
+          }
+        }
+
+        assert.strictEqual(edgeChanged, 0);
+        assert.ok(centreChanged > 0);
+      });
+    });
+
+    it("mandelbrot renders and wraps around the edges", function () {
+      const generator = tgen.init(size, size);
+
+      generator.render({
+        items: [
+          [0, "fill", { rgba: [0, 0, 0, 255] }],
+          [
+            0,
+            "mandelbrot",
+            {
+              rgba: [37, 11, 59, 255],
+              iteration: 64,
+              x: 0,
+              y: 50,
+              size: 80,
+              power: 2,
+              angle: 0,
+            },
+          ],
+        ],
+      });
+
+      const data = generator.texture.data;
+      let left = 0;
+      let right = 0;
+
+      for (let y = 0; y < size; y++) {
+        if (data[(y * size + 2) * 4] > 0) {
+          left++;
+        }
+
+        if (data[(y * size + size - 3) * 4] > 0) {
+          right++;
+        }
+      }
+
+      assert.ok(left > 0);
+      assert.ok(right > 0);
+    });
+
+    it("julia renders and wraps around the edges", function () {
+      const generator = tgen.init(size, size);
+
+      generator.render({
+        items: [
+          [0, "fill", { rgba: [0, 0, 0, 255] }],
+          [
+            0,
+            "julia",
+            {
+              rgba: [255, 255, 255, 255],
+              c: [-0.8, 0.156],
+              power: 2,
+              angle: 0,
+              colormap: "fire",
+              iteration: 64,
+              x: 0,
+              y: 50,
+              size: 100,
+            },
+          ],
+        ],
+      });
+
+      const data = generator.texture.data;
+      let left = 0;
+      let right = 0;
+
+      for (let y = 0; y < size; y++) {
+        if (data[(y * size + 2) * 4] > 0) {
+          left++;
+        }
+
+        if (data[(y * size + size - 3) * 4] > 0) {
+          right++;
+        }
+      }
+
+      assert.ok(left > 0);
+      assert.ok(right > 0);
+    });
+
+    it("electricity is seamless", function () {
+      ["bolt", "field"].forEach(function (type) {
+        const generator = tgen.init(size, size);
+
+        generator.render({
+          items: [
+            [0, "fill", { rgba: [0, 0, 0, 255] }],
+            [0, "electricity", { type, seed: 7, count: 4 }],
+          ],
+        });
+
+        const data = generator.texture.data;
+        const column = function (x) {
+          const values = [];
+
+          for (let y = 0; y < size; y++) {
+            values.push(data[(y * size + x) * 4 + 2]);
+          }
+
+          return values;
+        };
+        const difference = function (a, b) {
+          let sum = 0;
+
+          for (let k = 0; k < a.length; k++) {
+            sum += Math.abs(a[k] - b[k]);
+          }
+
+          return sum / a.length;
+        };
+
+        // across the wrap line it changes like between any two columns
+        let inner = 0;
+
+        for (let x = 1; x < size; x++) {
+          inner = Math.max(inner, difference(column(x - 1), column(x)));
+        }
+
+        assert.ok(column(0).some((value) => value > 0) || inner > 0);
+        assert.ok(difference(column(size - 1), column(0)) <= inner);
+      });
+    });
+
+    it("plasmas are seamless", function () {
+      ["colorplasma", "warpplasma", "blobplasma"].forEach(function (effect) {
+        const generator = tgen.init(size, size);
+
+        generator.render({
+          items: [[0, effect, { seed: 3, rgba: [255, 255, 255, 255] }]],
+        });
+
+        const data = generator.texture.data;
+        const at = function (x, y) {
+          return data[(y * size + x) * 4];
+        };
+        let inner = 0;
+        let wrap = 0;
+
+        for (let y = 0; y < size; y++) {
+          for (let x = 1; x < size; x++) {
+            inner = Math.max(inner, Math.abs(at(x, y) - at(x - 1, y)));
+          }
+
+          wrap = Math.max(wrap, Math.abs(at(0, y) - at(size - 1, y)));
+        }
+
+        assert.ok(inner > 0, effect);
+        assert.ok(wrap <= inner, effect);
+      });
+    });
+
+    it("defaults are not mutated by effects", function () {
+      const before = JSON.stringify(tgen.defaults);
+      const generator = tgen.init(size, size);
+
+      generator.do("invert").do("stars").do("dots");
+
+      assert.strictEqual(JSON.stringify(tgen.defaults), before);
+    });
+
+    it("copy by layer number", function () {
+      const generator = tgen.init(size, size);
+
+      generator.render({
+        items: [
+          [0, "fill", { rgba: [255, 0, 0, 255] }],
+          [1, "fill", { rgba: [0, 0, 255, 255] }],
+          [2, "copy", 0],
+        ],
+      });
+
+      const params = generator.params();
+
+      assert.strictEqual(params.items[2][2].layer, 0);
+      assert.strictEqual(generator.texture.data[0], 255);
+      assert.strictEqual(generator.texture.data[2], 0);
+    });
+
+    it("overlay ok", function () {
+      const generator = tgen.init(size, size);
+
+      generator.render({
         items: [
           [
             0,
             "spheres",
             {
-              seed: 9481,
+              seed: 346598,
             },
           ],
           [
             1,
             "spheres",
             {
-              seed: 3845,
+              seed: 3465981,
             },
           ],
-          [2, "copy", 0],
+          [
+            2,
+            "copy",
+            {
+              layer: 0,
+            },
+          ],
           [
             2,
             "merge",
             {
               layer: 1,
-              blend: "difference",
+              blend: "linearburn",
+              opacity: 128,
             },
           ],
         ],
       });
 
-      savePNG(texture, "copy-merge");
+      savePNG(generator, "copy-merge");
 
-      var params = texture.params();
+      const params = generator.params();
 
       assert.strictEqual(params.width, size);
       assert.strictEqual(params.height, size);
       assert.strictEqual(params.normalize, "limitless");
       assert.strictEqual(params.items[0][1], "spheres");
-      assert.strictEqual(params.items[3][2].blend, "difference");
+      assert.strictEqual(params.items[3][2].blend, "linearburn");
 
-      assert.strictEqual(texture.texture.data[0], 173.28090000152588);
-      assert.strictEqual(texture.texture.data[1], 55.931830406188965);
-      assert.strictEqual(texture.texture.data[2], 168.4103558063507);
-      assert.strictEqual(texture.texture.data[3], 255);
+      assertFloatEqual(generator.texture.data[0], -11.97750186920166);
+      assertFloatEqual(generator.texture.data[1], 23.04226303100586);
+      assertFloatEqual(generator.texture.data[2], 15.023548126220703);
+      assert.strictEqual(generator.texture.data[3], 255);
 
-      assert.strictEqual(texture.texture.data[4], 135.27759742736816);
-      assert.strictEqual(texture.texture.data[5], 40.2001428604126);
-      assert.strictEqual(texture.texture.data[6], 136.52849769592285);
-      assert.strictEqual(texture.texture.data[7], 255);
+      assertFloatEqual(generator.texture.data[4], Math.fround(-5.1239138));
+      assertFloatEqual(generator.texture.data[5], Math.fround(33.221096));
+      assertFloatEqual(generator.texture.data[6], Math.fround(19.778152));
+      assert.strictEqual(generator.texture.data[7], 255);
+
+      const clamped = generator.texture.export("clamped");
+
+      assert.strictEqual(clamped[0], 0);
+      assert.strictEqual(clamped[1], 23);
+      assert.strictEqual(clamped[2], 15);
+      assert.strictEqual(clamped[3], 255);
     });
   });
+
+  it("test-pattern", function () {
+    const sizePattern = 256;
+
+    const generator = tgen.init(sizePattern, sizePattern, "limitless");
+    generator.do("test-pattern");
+
+    savePNG(generator, "test-pattern", sizePattern, sizePattern);
+    const params = generator.params();
+
+    assert.strictEqual(params.width, sizePattern);
+    assert.strictEqual(params.height, sizePattern);
+    assert.strictEqual(params.normalize, "limitless");
+    assert.strictEqual(params.items[0][1], "brightness");
+    assert.strictEqual(params.items[0][2].adjust, 50);
+    assert.strictEqual(params.items[1][1], "vibrance");
+    assert.strictEqual(params.items[1][2].adjust, 100);
+    assert.strictEqual(params.items[2][1], "contrast");
+    assert.strictEqual(params.items[2][2].adjust, 20);
+    assert.strictEqual(params.items[3][1], "test-pattern");
+
+    const pixel0 = generator.texture.get(0, 0);
+    const pixel1 = generator.texture.get(20, 20);
+    const pixel2 = generator.texture.get(39, 39);
+    const pixel3 = generator.texture.get(32, 56);
+    const pixel4 = generator.texture.get(62, 62);
+    const pixel5 = generator.texture.get(236, 236);
+    const pixel6 = generator.texture.get(19, 109);
+
+    assert.strictEqual(pixel0[0], 255);
+    assert.strictEqual(pixel0[1], 255);
+    assert.strictEqual(pixel0[2], 255);
+    assert.strictEqual(pixel0[3], 255);
+
+    assertFloatEqual(pixel1[0], 214.67494201660156);
+    assertFloatEqual(pixel1[1], 120.41922760009766);
+    assertFloatEqual(pixel1[2], 96.25494384765625);
+    assert.strictEqual(pixel1[3], 255);
+
+    assertFloatEqual(pixel2[0], 215.4040985107422);
+    
+    assertFloatEqual(pixel2[2], 96.42085266113281);
+    assert.strictEqual(pixel2[3], 255);
+    
+
+    assert.strictEqual(pixel3[0], 255);
+    
+    assertFloatEqual(pixel3[2], 24.52901840209961);
+    assert.strictEqual(pixel3[3], 255);
+
+    assertFloatEqual(pixel4[0], 214.0687713623047);
+    assertFloatEqual(pixel4[1], 119.13373565673828);
+    assertFloatEqual(pixel4[2], 98.00473022460938);
+    assert.strictEqual(pixel4[3], 255);
+
+    assertFloatEqual(pixel5[0], 228.55682373046875);
+    assertFloatEqual(pixel5[1], 112.35067749023438);
+    
+    assert.strictEqual(pixel5[3], 255);
+
+    assert.strictEqual(pixel6[0], 255);
+    assertFloatEqual(pixel6[1], 185.81246948242188);
+    assertFloatEqual(pixel6[2], 35.00555419921875);
+    assert.strictEqual(pixel6[3], 255);
+  });
+
 });

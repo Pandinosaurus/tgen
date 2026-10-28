@@ -1,77 +1,101 @@
-(function (tgen) {
-  // subplasma - aDDict2
-  tgen.effect(
-    "subplasma",
-    {
-      seed: [1, Number.MAX_SAFE_INTEGER],
-      size: [1, 7],
-      rgba: "randomalpha",
-    },
-    function ($g, params) {
-      params.size = $g.randByArraySeed(params.size);
+const render = function ($g, params) {
+  const buffer = [];
+  const rx = $g.texture.width;
+  const ry = rx;
 
-      var np = 1 << params.size;
-      var rx = $g.texture.width;
-      var ry = rx;
-      var buffer = [];
-      var x, y, p, zy, color;
+  let np = 1 << params.size;
+  let x, y, p, zy, color, ssize;
 
-      if (np > rx) {
-        np = rx;
-      }
+  if (np > rx) {
+    np = rx;
+  }
 
-      var ssize = rx / np;
+  ssize = rx / np;
 
-      for (y = 0; y < np; y++) {
-        for (x = 0; x < np; x++) {
-          buffer[x * ssize + y * ssize * rx] = $g.randRealSeed(0, 1);
-        }
-      }
-
-      for (y = 0; y < np; y++) {
-        for (x = 0; x < rx; x++) {
-          p = x & ~(ssize - 1);
-          zy = y * ssize * rx;
-          buffer[x + zy] = $g.calc.interpolate.catmullrom(
-            buffer[((p - ssize * 1) & (rx - 1)) + zy],
-            buffer[((p - ssize * 0) & (rx - 1)) + zy],
-            buffer[((p + ssize * 1) & (rx - 1)) + zy],
-            buffer[((p + ssize * 2) & (rx - 1)) + zy],
-            x % ssize,
-            ssize
-          );
-        }
-      }
-
-      for (y = 0; y < ry; y++) {
-        for (x = 0; x < rx; x++) {
-          p = y & ~(ssize - 1);
-          buffer[x + y * rx] = $g.calc.interpolate.catmullrom(
-            buffer[x + ((p - ssize * 1) & (ry - 1)) * rx],
-            buffer[x + ((p - ssize * 0) & (ry - 1)) * rx],
-            buffer[x + ((p + ssize * 1) & (ry - 1)) * rx],
-            buffer[x + ((p + ssize * 2) & (ry - 1)) * rx],
-            y % ssize,
-            ssize
-          );
-        }
-      }
-
-      // colorize
-      for (x = 0; x < $g.texture.width; x++) {
-        for (y = 0; y < $g.texture.height; y++) {
-          color = 255 * buffer[x + y * rx];
-          $g.point.rgba = $g.point.colorize(params.rgba, [
-            color,
-            color,
-            color,
-            255,
-          ]);
-          $g.point.set(x, y);
-        }
-      }
-
-      return params;
+  for (y = 0; y < np; y++) {
+    for (x = 0; x < np; x++) {
+      buffer[x * ssize + y * ssize * rx] = $g.randRealSeed(0, 1);
     }
-  );
-})(SeamlessTextureGenerator);
+  }
+
+  for (y = 0; y < np; y++) {
+    for (x = 0; x < rx; x++) {
+      p = x & ~(ssize - 1);
+      zy = y * ssize * rx;
+      buffer[x + zy] = $g.calc.interpolate.catmullrom(
+        buffer[((p - ssize * 1) & (rx - 1)) + zy],
+        buffer[((p - ssize * 0) & (rx - 1)) + zy],
+        buffer[((p + ssize * 1) & (rx - 1)) + zy],
+        buffer[((p + ssize * 2) & (rx - 1)) + zy],
+        x % ssize,
+        ssize
+      );
+    }
+  }
+
+  for (y = 0; y < ry; y++) {
+    for (x = 0; x < rx; x++) {
+      p = y & ~(ssize - 1);
+      buffer[x + y * rx] = $g.calc.interpolate.catmullrom(
+        buffer[x + ((p - ssize * 1) & (ry - 1)) * rx],
+        buffer[x + ((p - ssize * 0) & (ry - 1)) * rx],
+        buffer[x + ((p + ssize * 1) & (ry - 1)) * rx],
+        buffer[x + ((p + ssize * 2) & (ry - 1)) * rx],
+        y % ssize,
+        ssize
+      );
+    }
+  }
+
+  // colorize
+  if (params.colorize) {
+    for (x = 0; x < $g.texture.width; x++) {
+      for (y = 0; y < $g.texture.height; y++) {
+        color = 255 * buffer[x + y * rx];
+        $g.point.rgba = $g.point.colorize(params.rgba, [
+          color,
+          color,
+          color,
+          255,
+        ]);
+        $g.point.set(x, y);
+      }
+    }
+  } else {
+    for (x = 0; x < $g.texture.width; x++) {
+      for (y = 0; y < $g.texture.height; y++) {
+        color = 255 * buffer[x + y * rx];
+        $g.point.rgba = [color, color, color, 255];
+        $g.point.set(x, y);
+      }
+    }
+  }
+
+  return params;
+};
+
+module.exports = function (tgen) {
+  // subplasma - aDDict2
+
+  let params = {
+    seed: null,
+    blend: tgen.blendFlat(),
+    rgba: "randomalpha",
+    colorize: null,
+    size: [1, 7],
+    opacity: 1,
+  };
+
+  const prepare = function ($g, params) {
+    // because of backward compatibility
+    if (params.colorize === null) {
+      params.colorize = 1;
+    } else {
+      params.colorize = $g.randByArraySeed(params.colorize);
+    }
+
+    params.size = $g.randByArraySeed(params.size);
+  };
+
+  tgen.effect("subplasma", params, render, prepare);
+};

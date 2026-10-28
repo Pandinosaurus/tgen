@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Background Test</title>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.4.3/pixi.min.js"
+      integrity="sha512-o3fAFcbCbTTJRFRNx4vByRZVtdKYF9uklctNjDXrN1JjT00rJxCCyNJSDi35rPBEqzWvYplcHLlEmyW34Ado8A=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/seamless-texture-generator@1.4.46/dist/tgen-with-presets.min.js"
+      integrity="sha256-VJ/uA2yQQmGArbSMGW7sVWYwEsZRUdbo1a/3YUoHLcM="
+      crossorigin="anonymous"
+    ></script>
+  </head>
+
+  <body>
+    <script>
+      const generator = tgen.init(256, 256);
+      const texture = generator.render({
+        preset: {
+          name: "waves-cool",
+          seed: null,
+        },
+      });
+
+      const sprite = PIXI.Sprite.from(texture.toCanvas());
+      const app = new PIXI.Application({ background: "#000" });
+
+      sprite.anchor.set(0.5);
+      sprite.x = app.screen.width / 2;
+      sprite.y = app.screen.height / 2;
+      app.stage.addChild(sprite);
+      app.ticker.add((delta) => {
+        sprite.rotation += 0.01 * delta;
+      });
+
+      document.body.appendChild(app.view);
+    </script>
+  </body>
+</html>

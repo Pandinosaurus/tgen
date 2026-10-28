@@ -1,13 +1,13 @@
-(function (tgen) {
+module.exports = function (tgen) {
   // dots
   tgen.effect(
     "dots",
     {
-      blend: "opacity",
+      seed: null,
+      blend: tgen.blendSafe(),
       gridX: [2, 64],
       gridY: [2, 64],
       size: [1, 250],
-      seed: [1, Number.MAX_SAFE_INTEGER],
       rgba: "randomalpha",
       shape: "sphere",
       dynamic: true,
@@ -24,25 +24,25 @@
         "pyramid",
         "rect",
         "circle",
+        "cross",
+        "diamond",
       ]);
 
-      var percent = $g.randByArraySeed(params.size) / 100;
+      const percent = $g.randByArraySeed(params.size) / 100;
+      const width = $g.texture.width;
+      const height = $g.texture.height;
+      const stepX = width / params.gridX;
+      const stepY = height / params.gridY;
+      const halfstepX = stepX / 2;
+      const halfstepY = stepY / 2;
 
-      var width = $g.texture.width;
-      var height = $g.texture.height;
-      var stepX = width / params.gridX;
-      var stepY = height / params.gridY;
-      var halfstepX = stepX / 2;
-      var halfstepY = stepY / 2;
+      let gx, gy, m, size;
 
-      for (var gx = 1; gx <= params.gridX; gx++) {
-        for (var gy = 1; gy <= params.gridY; gy++) {
-          //var percent = $g.randByArraySeed(params.size) / 100;
-          //var size = (percent * (stepX + stepY) / 2);
+      for (gx = 1; gx <= params.gridX; gx++) {
+        for (gy = 1; gy <= params.gridY; gy++) {
+          m = (percent * (stepX + stepY)) / 2 / 2;
 
-          var m = (percent * (stepX + stepY)) / 2 / 2;
-
-          var size =
+          size =
             m -
             (m / 2) *
               Math.sin((gx / params.gridX) * params.xsines * 2 * $g.calc.pi) +
@@ -85,6 +85,24 @@
                 params.dynamic
               );
               break;
+            case "cross":
+              $g.shape.cross(
+                $g,
+                gx * stepX - halfstepX,
+                gy * stepY - halfstepY,
+                size / 2,
+                true
+              );
+              break;
+            case "diamond":
+              $g.shape.diamond(
+                $g,
+                gx * stepX - halfstepX,
+                gy * stepY - halfstepY,
+                size / 2,
+                true
+              );
+              break;
             default:
               size = size / 2;
               $g.shape.circle(
@@ -102,4 +120,4 @@
       return params;
     }
   );
-})(SeamlessTextureGenerator);
+};

@@ -1,9 +1,10 @@
-(function (tgen) {
+module.exports = function (tgen) {
   // spheres
   tgen.effect(
     "spheres",
     {
-      blend: tgen.blendSafe,
+      seed: null,
+      blend: tgen.blendFlat(),
       rgba: "randomalpha",
       origin: "random",
       dynamic: true,
@@ -12,15 +13,16 @@
         [1, 92],
         [1, 92],
       ],
-      seed: [1, Number.MAX_SAFE_INTEGER],
     },
     function ($g, params) {
       params.dynamic = $g.randItemByArraySeed(params.dynamic, [true, false]);
       params.size[0] = $g.randByArraySeed(params.size[0], false);
       params.size[1] = $g.randByArraySeed(params.size[1], false);
 
-      for (var i = 0; i < params.count; i++) {
-        var xys = $g.xysize(i, params);
+      let i, xys;
+
+      for (i = 0; i < params.count; i++) {
+        xys = $g.xysize(i, params);
         $g.shape.sphere(
           $g,
           $g.percentX(xys.x),
@@ -35,4 +37,4 @@
       return params;
     }
   );
-})(SeamlessTextureGenerator);
+};

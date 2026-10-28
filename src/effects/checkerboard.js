@@ -1,9 +1,10 @@
-(function (tgen) {
+module.exports = function (tgen) {
   // checkerboard
   tgen.effect(
     "checkerboard",
     {
-      blend: tgen.blendFlat,
+      seed: null,
+      blend: tgen.blendFlat(),
       rgba: "randomalpha",
       even: "random",
       size: [
@@ -14,9 +15,11 @@
     function ($g, params) {
       params.even = $g.randItemByArraySeed(params.even, [true, false]);
 
-      var width = $g.texture.width;
-      var height = $g.texture.height;
-      var sizeX, sizeY;
+      const width = $g.texture.width;
+      const height = $g.texture.height;
+
+      let sizeX, sizeY;
+      let x, y, cx, cy;
 
       if (typeof params.size === "number") {
         sizeX = sizeY = params.size;
@@ -25,12 +28,12 @@
         sizeY = params.size[1] = $g.randByArraySeed(params.size[1], null, true);
       }
 
-      var cellX = width / sizeX;
-      var cellY = height / sizeY;
+      const cellX = Math.round(width / sizeX);
+      const cellY = Math.round(height / sizeY);
 
-      var drawCell = function (offsetX, offsetY) {
-        for (var x = 0; x < cellX; x++) {
-          for (var y = 0; y < cellY; y++) {
+      const drawCell = function (offsetX, offsetY) {
+        for (x = 0; x < cellX; x++) {
+          for (y = 0; y < cellY; y++) {
             if (x + offsetX < width && y + offsetY < height) {
               $g.point.set(x + offsetX, y + offsetY);
             }
@@ -38,9 +41,9 @@
         }
       };
 
-      for (var cx = 0; cx < sizeX; cx++) {
+      for (cx = 0; cx < sizeX; cx++) {
         if (cx % 2 == 0) {
-          for (var cy = 0; cy < sizeY; cy++) {
+          for (cy = 0; cy < sizeY; cy++) {
             if (cy % 2 == 0) {
               drawCell(cx * cellX, cy * cellY);
             } else {
@@ -53,4 +56,4 @@
       return params;
     }
   );
-})(SeamlessTextureGenerator);
+};

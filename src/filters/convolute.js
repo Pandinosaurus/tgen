@@ -1,4 +1,4 @@
-(function (tgen) {
+module.exports = function (tgen) {
   // convolute
   tgen.filter(
     "convolute",
@@ -17,13 +17,13 @@
       }
 
       if (typeof params.weights[0] == "string") {
-        params.weights = $g.randByArray(params.weights);
+        params.weights = $g.randByArraySeed(params.weights);
       }
 
       if (typeof params.weights == "string") {
         if (params.weights === "random") {
-          var min = -32;
-          var max = 32;
+          const min = -32;
+          const max = 32;
           params.weights = [
             $g.randIntSeed(min, max),
             $g.randIntSeed(min, max),
@@ -41,7 +41,7 @@
 
           $g.log(params.weights.join(", "));
         } else {
-          var presets = {
+          const presets = {
             edgedetect1: [-1, -1, -1, -1, 8, -1, -1, -1, -1],
             edgedetect2: [0, 1, 0, 1, -4, 1, 0, 1, 0],
             edgedetect3: [1, 0, -1, 0, 0, 0, -1, 0, 1],
@@ -67,25 +67,29 @@
         }
       }
 
-      var buffer = new $g.buffer();
+      const side = Math.round(Math.sqrt(params.weights.length));
+      const halfSide = Math.floor(side / 2);
+      const alphaFac = params.transparent ? 1 : 0;
+      const buffer = new $g.buffer();
+
       buffer.clear();
-      var side = Math.round(Math.sqrt(params.weights.length));
-      var halfSide = Math.floor(side / 2);
-      var alphaFac = params.transparent ? 1 : 0;
 
-      for (var y = 0; y < $g.texture.height; y++) {
-        for (var x = 0; x < $g.texture.width; x++) {
-          var r = 0,
-            g = 0,
-            b = 0,
-            a = 0;
+      let x, y, r, g, b, a, cx, cy, wt, scy, scx, color;
+      let size = $g.texture.size();
 
-          for (var cy = 0; cy < side; cy++) {
-            for (var cx = 0; cx < side; cx++) {
-              var wt = params.weights[cy * side + cx];
-              var scy = y + cy - halfSide;
-              var scx = x + cx - halfSide;
-              var color = $g.texture.get(scx, scy);
+      for (y = 0; y < $g.texture.height; y++) {
+        for (x = 0; x < $g.texture.width; x++) {
+          r = 0;
+          g = 0;
+          b = 0;
+          a = 0;
+
+          for (cy = 0; cy < side; cy++) {
+            for (cx = 0; cx < side; cx++) {
+              wt = params.weights[cy * side + cx];
+              scy = y + cy - halfSide;
+              scx = x + cx - halfSide;
+              color = $g.texture.get(scx, scy);
 
               r += color[0] * wt;
               g += color[1] * wt;
@@ -98,7 +102,6 @@
         }
       }
 
-      var size = $g.texture.size();
       while (size--) {
         $g.texture.data[size] = buffer.data[size];
       }
@@ -106,4 +109,4 @@
       return params;
     }
   );
-})(SeamlessTextureGenerator);
+};

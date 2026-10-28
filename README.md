@@ -1,20 +1,98 @@
 # tgen.js
 
-Seamless texture generator in Javascript
+**Seamless texture generator in Javascript**
+
+[![Paypal Donate](https://img.shields.io/badge/donate-paypal-00457c.svg?logo=paypal&style=flat-square)](https://www.paypal.me/schalkt)
+[![Revolut Badge](https://img.shields.io/badge/donate-revolut-d82c7b?logo=revolut&logoColor=fff&style=flat-square)](https://revolut.me/tams9imtf)
+[![Liberapay Badge](https://img.shields.io/badge/donate-liberapay-f6c915?logo=liberapay&logoColor=f6c915&style=flat-square)](https://liberapay.com/schalkt/)
 
 [![preview](https://img.shields.io/badge/preview-click_here-green.svg?style=flat-square)](https://texture-generator.com/generator/demo/)
 [![npm](https://img.shields.io/npm/dt/seamless-texture-generator.svg?style=flat-square)](https://www.npmjs.com/package/seamless-texture-generator)
 [![GitHub issues](https://img.shields.io/github/issues/schalkt/tgen.svg?style=flat-square)](https://github.com/schalkt/tgen/issues)
-[![Build Status](https://travis-ci.com/schalkt/tgen.svg?branch=master)](https://travis-ci.com/schalkt/tgen)
 [![npm](https://img.shields.io/npm/v/seamless-texture-generator.svg?style=flat-square)](https://www.npmjs.com/package/seamless-texture-generator)
+
 [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=schalkt_tgen&metric=sqale_rating)](https://sonarcloud.io/dashboard?id=schalkt_tgen)
 [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=schalkt_tgen&metric=security_rating)](https://sonarcloud.io/dashboard?id=schalkt_tgen)
 [![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=schalkt_tgen&metric=vulnerabilities)](https://sonarcloud.io/dashboard?id=schalkt_tgen)
 [![Bugs](https://sonarcloud.io/api/project_badges/measure?project=schalkt_tgen&metric=bugs)](https://sonarcloud.io/dashboard?id=schalkt_tgen)
 
+[![Node.js CI](https://github.com/schalkt/tgen/actions/workflows/node.js.yml/badge.svg)](https://github.com/schalkt/tgen/actions/workflows/node.js.yml)
+[![CodeQL](https://github.com/schalkt/tgen/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/schalkt/tgen/actions/workflows/codeql-analysis.yml)
+
 ## The generator in action
 
+OLD UI
 [https://texture-generator.com/generator/demo](https://texture-generator.com/generator/demo/)
+
+NEW UI (beta)
+[https://new.texture-generator.com](https://new.texture-generator.com/)
+
+## Version 2.0 - textures may look different
+
+Version 2.0 contains several bug fixes and new options. Because of these, textures saved with
+version 1.x will not always look the same when rendered with 2.0, even with the same params and seed.
+If you need identical output, keep using the latest 1.x release.
+
+Changes that affect existing textures:
+
+* blending: in 1.x the blend result overwrote the shape color, so every next pixel of the same shape was
+  blended with the already blended color. 2.0 blends every pixel with the original color
+* params saved before 2.0 (`version` below 2) render in 1.x compatible mode (accumulating blend, double
+  precision after `copy`), so they look the same as when they were saved, and they keep their version when
+  saved again
+
+* `[2, "copy", 0]` now copies the given layer. In 1.x a number param was lost and the last layer was
+  always copied (the `merge-map` and `rrrr` presets look different because of this)
+* `blend: "random"` can pick the new blends too, so the same seed may select another blend
+* `colormap: "pickone"` can pick the new colormaps too
+* `colorbar` uses the whole colormap in every repeat (and for `radial`, `diamond`), in 1.x only the
+  first part of it was used
+* `dots` effect with `shape: "random"` can pick the new `cross` and `diamond` shapes
+* `seed` in the config or in `preset` is now applied by the defaults of each item's effect
+  (in 1.x it was looked up by the preset name and could crash or be ignored)
+
+Other fixes:
+
+* `rotate` with `type: 2` no longer leaves blank (black) pixels, params saved before 2.0 keep the old look
+* `mandelbrot`: its `skip` param also meant "skip this item" for the renderer, so with the default
+  `skip: [0, 8]` it never rendered. It is renamed to `threshold`. The effect is reworked (seamless,
+  smooth coloring), so mandelbrot textures saved before 2.0 look different
+* `generator.do()` is chainable again (`generator.do("waves").do("sharpen").toCanvas()`), in 1.x it
+  returned the effect params instead of the generator
+* effects no longer overwrite the shared default params (e.g. `size`, `channels`), so repeated calls
+  without params are random again, not fixed to the values of the first call
+
+New in 2.0:
+
+* effects: `cells` (seamless voronoi / worley), `diamonds` (scatter or harlequin grid, flat, faceted or gem style), `crosses`
+* filters: `posterize`, `solarize`
+* blends: `hardlight`, `colordodge`, `colorburn`
+* colormaps: `terrain`, `rainbow`
+* shapes: `cross`, `diamond`
+* `rotate` option `fade` (type 1 and 2): fades the rotated layer out toward the edges, in percent of the size
+  (0 = off, 10 = starts 10% from the edges), the edge pixels stay untouched
+* `mandelbrot` options `x`, `y` (centre, percent) and `size` (percent): the whole set is drawn and
+  wrapped around the texture edges, so it is seamless. `size` above 100 zooms in to `focusX`, `focusY`
+  (percent of the set area, by default a random point near the edge of the set), the zoomed set is mirrored
+  at the centre and the edges to stay seamless. `colormap` colors by the iteration count
+* `mandelbrot`: smooth coloring, `density` (colormap cycle speed), `glow` (soft fade in from transparent),
+  `inside` (`"transparent"` or `"color"`), `antialias` (samples per pixel on each axis), `power`
+  (z^power, multibrot) and `angle` (rotation)
+* new `electricity` effect: seamless lightning bolts (`type: "bolt"`, jagged lines with branches and glow,
+  `size` scales the length in percent, `width` and `radius` set the thickness of the core and the glow)
+  or an electric field (`type: "field"`, glowing lines of a warped periodic noise, `thickness` of the lines).
+  `colormap` colors by the intensity, the brighter end of it is the core
+  `core: 0` turns off the white hot core, e.g. for dark veins with `blend: "multiply"` (see the `marble` effect)
+* new `marble` effect and preset: white, green, black or gold marble (`palette`, picked by the seed),
+  with `veins`, `fine` (vein layers), `warp` and `thickness` of the main veins
+* new plasma effects (and `plasma-classic`, `plasma-warp`, `plasma-blob` presets):
+  * `colorplasma`: the classic colorful "render plasma", diamond-square separately on the rgb channels
+    (`roughness`, `scale`, `contrast`)
+  * `warpplasma`: liquid plasma by domain warping the noise with itself (`scale`, `octaves`, `warp`,
+    `depth`, `cycles`, `shade`)
+  * `blobplasma`: metaball field of charged points (`count`, `size`, `falloff`, `negative`, `cycles`)
+* new `julia` effect: julia sets with the same options as `mandelbrot`, `c` sets the constant
+  (`[real, imaginary]`, by default a random point near the edge of the mandelbrot set)
 
 
 ## Examples
@@ -118,7 +196,7 @@ Seamless texture generator in Javascript
                 "size":    [20, 100],
                 "rgba":    [200, 200, 200, 0.7]
             }],
-            [2, "copy", 0], // copy layer 0 to layer 1
+            [2, "copy", 0], // copy layer 0 to layer 2
             [2, "merge", { // merge layer 1 in to 2
                 "layer": 1,
                 "blend": "lighten"
@@ -190,7 +268,13 @@ Seamless texture generator in Javascript
 * copy (copy layer without blend)
 * rotate (by angle, by times, by blend)
 
-### Available events
+### Available events while rendering
+
+```javascript
+texture.render(params, function(event, data){
+    console.log(event, data);
+});
+```
 
 * beforeRender
 * afterRender
@@ -209,25 +293,21 @@ MIT
 
 ## Build
 
-* Node.js 12 recommended
+* Node.js 22.18 or newer required, 24 recommended
 * `npm install`
-* `gulp dev` for development release
-* `gulp prod` for production release
+* `npm run dev` for development release
+* `npm run prod` for production release
 
 ## Todo
 
-* fix rotate type 2 (blank pixels)
 * alphamap
-* plasma
-* fractals, mandelbrot (WIP)
 * more shapes
 * sprites
-* electricity
 * image import
+* lines (mint alaplapon a vezetékek)
 * tgen().target('#mycanvas').params({})
 * copy from outer canvas
 * more examples
-* fix colorbar mirror : false (black image)
 * [cubemap-toastmap-generator](https://jonaszeitler.se/cubemap-toastmap-generator/)
 * https://github.com/jaxry/panorama-to-cubemap
 * https://www.patreon.com/posts/36130209

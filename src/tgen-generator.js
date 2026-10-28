@@ -1,20 +1,20 @@
-(function (tgen) {
+module.exports = function (tgen) {
   tgen.getGenerator = function (width, height, normalize) {
-    var self = this;
-    var rendered = []; // rendered effects real params
-    var time = {}; // time object for stat
-    var layerId = 0; // start layer id
-    var wha = null; // width and height average
+    const self = this;
+    const time = {}; // time object for stat
+    let rendered = []; // rendered effects real params
+    let wha = null; // width and height average
 
     // generator object
-    var generator = {
+    const generator = {
       shape: self.shapes,
       effects: Object.keys(self.effects),
       layers: [],
       normalize: normalize ? normalize : "limitless", // clamped, pingpong, limitless, compress
+      legacy: false, // 1.x compatible rendering, set by render() for params saved before 2.0
     };
 
-    var checkSize = function () {
+    const checkSize = function () {
       // default width
       if (width == undefined) {
         width = 256;
@@ -49,10 +49,12 @@
     // log
     generator.log = function () {
       if (this.debug && arguments.length > 0) {
-        var output = [];
-        for (var i = 0; i < arguments.length; i++) {
+        const output = [];
+
+        for (let i = 0; i < arguments.length; i++) {
           output.push(arguments[i]);
         }
+
         console.log(output);
       }
     };
@@ -62,7 +64,7 @@
       generator.texture.clear();
       generator.layers = [];
       rendered = [];
-      layerId = 0;
+      //layerId = 0;
 
       // start time
       time.start = new Date().getTime();
@@ -91,26 +93,35 @@
         return this.data.length;
       };
 
+      // Seamless wrap: bit-mask when both sides are power-of-two
+      this.widthMask = this.width - 1;
+      this.heightMask = this.height - 1;
+      this.wrapPow2 =
+        this.width > 0 &&
+        (this.width & this.widthMask) === 0 &&
+        this.height > 0 &&
+        (this.height & this.heightMask) === 0;
+
       this.export = function (normalize, texture) {
-        //var size = this.size();
         normalize = normalize !== undefined ? normalize : generator.normalize;
         texture = texture ? texture : this.data;
-        var size = texture.length;
-        var data;
+
+        let size = texture.length;
+        let data, min, max, s, range, percent;
 
         switch (normalize) {
           case "limitless":
-            data = new Float32Array(size);
-            while (size--) {
-              data[size] = texture[size];
-            }
+            data =
+              texture instanceof Float32Array
+                ? texture.slice()
+                : Float32Array.from(texture);
             break;
 
           case "clamped":
-            data = new Uint8ClampedArray(size);
-            while (size--) {
-              data[size] = texture[size];
-            }
+            data =
+              texture instanceof Uint8ClampedArray
+                ? texture.slice()
+                : Uint8ClampedArray.from(texture);
             break;
 
           case "pingpong":
@@ -122,9 +133,9 @@
 
           case "compress":
             data = new Uint8ClampedArray(size);
-            var min = texture[0];
-            var max = texture[0];
-            var s = size;
+            min = texture[0];
+            max = texture[0];
+            s = size;
 
             while (s--) {
               if (texture[s]) {
@@ -135,8 +146,8 @@
 
             min = Math.floor(min);
             max = Math.ceil(max);
-            var range = max - min;
-            var percent = 255 / range;
+            range = max - min;
+            percent = 255 / range;
 
             while (size) {
               data[size - 1] = texture[size - 1]; // opacity
@@ -160,7 +171,8 @@
           rgba = this.background;
         }
 
-        var size = this.size();
+        let size = this.size();
+
         while (size) {
           this.data[size - 1] = rgba[3];
           this.data[size - 2] = rgba[2];
@@ -171,8 +183,8 @@
       };
 
       this.pattern = function (val, max) {
-        var smax, sval;
-        var s = val / max;
+        let smax, sval;
+        let s = val / max;
 
         if (val >= max) {
           smax = Math.floor(s) * max;
@@ -195,21 +207,24 @@
         x = Math.round(x);
         y = Math.round(y);
 
-        // if x not in the correct size
-        if (x < 0 || x >= this.width) {
-          x = this.pattern(x, this.width);
-        }
+        if (this.wrapPow2) {
+          x = x & this.widthMask;
+          y = y & this.heightMask;
+        } else {
+          if (x < 0 || x >= this.width) {
+            x = this.pattern(x, this.width);
+          }
 
-        // if y not in the correct size
-        if (y < 0 || y >= this.height) {
-          y = this.pattern(y, this.height);
+          if (y < 0 || y >= this.height) {
+            y = this.pattern(y, this.height);
+          }
         }
 
         return y * this.width * this.components + x * this.components;
       };
 
       this.set = function (x, y, values) {
-        var offset = this.offset(x, y);
+        const offset = this.offset(x, y);
 
         this.data[offset] = values[0];
         this.data[offset + 1] = values[1];
@@ -217,18 +232,21 @@
         this.data[offset + 3] = values[3];
       };
 
-      this.get = function (x, y) {
-        var offset = this.offset(x, y);
+      this.get = function (x, y, into) {
+        const offset = this.offset(x, y);
+        const out = into || [0, 0, 0, 0];
 
-        return [
-          this.data[offset],
-          this.data[offset + 1],
-          this.data[offset + 2],
-          this.data[offset + 3],
-        ];
+        out[0] = this.data[offset];
+        out[1] = this.data[offset + 1];
+        out[2] = this.data[offset + 2];
+        out[3] = this.data[offset + 3];
+
+        return out;
       };
 
       this.alpha = function (type) {
+        let size;
+
         switch (type) {
           case "sphere":
             while (size) {
@@ -242,13 +260,13 @@
 
       // copy canvas to texture
       this.canvas = function (canvas) {
-        var size = this.size();
-        var context = canvas.getContext("2d");
-        var image = context.getImageData(0, 0, this.width, this.height);
-        var imageData = image.data;
+        let size = this.size();
+
+        const context = canvas.getContext("2d");
+        const image = context.getImageData(0, 0, this.width, this.height);
 
         while (size--) {
-          generator.texture.data[size] = imageData[size];
+          generator.texture.data[size] = image.data[size];
         }
       };
 
@@ -261,46 +279,28 @@
     generator.texture = new generator.buffer();
 
     generator.layerCopy = function (layerId) {
-      var data = [];
-      var layer = this.layers[layerId];
-      var length = layer.length;
+      const layer = this.layers[layerId];
 
-      while (length--) {
-        data[length] = layer[length];
+      if (!layer) {
+        return layer;
       }
 
-      return data;
+      // before 2.0 the copy was a plain array, the texture continued in
+      // double precision after a copy - it changes the result of some textures
+      if (generator.legacy) {
+        return Array.from(layer);
+      }
+
+      if (typeof layer.slice === "function") {
+        return layer.slice();
+      }
+
+      return Float32Array.from(layer);
     };
 
-    // merge params objects
-    var mergeParams = function (obj1, obj2) {
-      var obj3 = {};
-      var attrname;
-
-      for (attrname in obj1) {
-        obj3[attrname] = obj1[attrname];
-      }
-
-      for (attrname in obj2) {
-        obj3[attrname] = obj2[attrname];
-      }
-
-      return obj3;
-    };
-
-    generator.clone = function (destination, source) {
-      for (var property in source) {
-        if (
-          typeof source[property] === "object" &&
-          source[property] !== null &&
-          destination[property]
-        ) {
-          this.clone(destination[property], source[property]);
-        } else {
-          destination[property] = source[property];
-        }
-      }
-    };
+    // generator.clone = function (destination, source) {
+    //   return {...destination, ...source};
+    // };
 
     generator.minMaxNormalize = function (min, max) {
       return {
@@ -311,8 +311,8 @@
 
     // random int min max
     generator.randInt = function (min, max, even) {
-      var mul;
-      var norm = generator.minMaxNormalize(min, max);
+      let mul;
+      const norm = generator.minMaxNormalize(min, max);
 
       min = norm.min;
       max = norm.max;
@@ -330,7 +330,9 @@
 
     // random int min max by seed
     generator.randIntSeed = function (min, max, even) {
-      var norm = generator.minMaxNormalize(min, max);
+      let mul;
+      const norm = generator.minMaxNormalize(min, max);
+
       min = norm.min;
       max = norm.max;
 
@@ -349,7 +351,7 @@
 
     // random real min max
     generator.randReal = function (min, max) {
-      var norm = generator.minMaxNormalize(min, max);
+      const norm = generator.minMaxNormalize(min, max);
       min = norm.min;
       max = norm.max;
       return Math.random() * (max - min) + min;
@@ -357,7 +359,7 @@
 
     // random real min max by seed
     generator.randRealSeed = function (min, max) {
-      var norm = generator.minMaxNormalize(min, max);
+      const norm = generator.minMaxNormalize(min, max);
       min = norm.min;
       max = norm.max;
       return generator.calc.randomseed() * (max - min) + min;
@@ -365,6 +367,7 @@
 
     generator.randByArray = function (data, real) {
       if (
+        data === null ||
         data === undefined ||
         typeof data !== "object" ||
         data[0] === undefined
@@ -393,7 +396,7 @@
         return data;
       }
 
-      if (real !== undefined) {
+      if (real) {
         data = generator.randRealSeed(data[0], data[1]);
       } else {
         data = generator.randIntSeed(data[0], data[1], even);
@@ -441,8 +444,20 @@
         return array;
       }
 
-      var count = array.length;
-      var index = generator.randIntSeed(0, count - 1);
+      const count = array.length;
+      const index = generator.randIntSeed(0, count - 1);
+
+      return array[index];
+    };
+
+    generator.randItemByArray = function (current, array) {
+      if (current !== undefined && current !== null && current !== "random") {
+        return current;
+      }
+
+      const count = array.length;
+      const index = generator.randInt(0, count - 1);
+
       return array[index];
     };
 
@@ -452,8 +467,8 @@
         return current;
       }
 
-      var count = array.length;
-      var index = generator.randIntSeed(0, count - 1);
+      const count = array.length;
+      const index = generator.randIntSeed(0, count - 1);
 
       return array[index];
     };
@@ -465,14 +480,14 @@
         return current;
       }
 
-      var keys = Object.keys(obj);
-      var key = generator.randByArraySeed([0, keys.length - 1]);
+      const keys = Object.keys(obj);
+      const key = generator.randByArraySeed([0, keys.length - 1]);
 
       return keys[key];
     };
 
     // set rgba color - if the channel is an array then random
-    generator.rgba = function (rgba, alpha) {
+    generator.rgba = function (rgba) {
       if (rgba === "random" || rgba === undefined || rgba === null) {
         rgba = [[0, 255], [0, 255], [0, 255], 255];
       }
@@ -499,7 +514,7 @@
       }
 
       if (rgba[3] === undefined || rgba[3] === null) {
-        rgba[3] = 1;
+        rgba[3] = 255;
       }
 
       rgba[0] = generator.randByArraySeed(rgba[0]);
@@ -521,7 +536,7 @@
     };
 
     // effect parameters fill with default values
-    var paramsCheck = function (params) {
+    const paramsCheck = function (params, name) {
       params.count = generator.randByArraySeed(params.count);
       params.level = generator.randByArraySeed(params.level);
       params.opacity = generator.randByArraySeed(params.opacity);
@@ -538,8 +553,10 @@
         generator.point.blend = "";
       }
 
-      // set rgba
-      params.rgba = generator.rgba(params.rgb ? params.rgb : params.rgba);
+      // set rgba only if needed
+      if (self.defaults[name] && self.defaults[name].rgba) {
+        params.rgba = generator.rgba(params.rgba);
+      }
 
       if (params.rgba) {
         generator.point.rgba = [
@@ -561,18 +578,193 @@
     };
 
     // store generated texture params for save
-    var store = function (layerId, type, params) {
+    const store = function (layerId, type, params) {
       rendered.push([layerId, type, params]);
     };
 
     // find closest item in array
     generator.findClosestIndex = function (array, start, step) {
-      for (var i = start; i >= 0 && i <= array.length - 1; i += step)
+      for (let i = start; i >= 0 && i <= array.length - 1; i += step)
         if (array[i]) {
           return i;
         }
 
       return array.length - 1;
+    };
+
+    generator.easing = {
+      PI: 3.1415926535, //Math.PI;
+      c1: 1.70158,
+      c2: this.c1 * 1.525,
+      c3: this.c1 + 1,
+      c4: (2 * this.PI) / 3,
+      c5: (2 * this.PI) / 4.5,
+
+      InQuad(x) {
+        return x * x;
+      },
+
+      OutQuad(x) {
+        return 1 - (1 - x) * (1 - x);
+      },
+
+      InOutQuad(x) {
+        return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+      },
+
+      InCubic(x) {
+        return x * x * x;
+      },
+
+      OutCubic(x) {
+        return 1 - Math.pow(1 - x, 3);
+      },
+
+      InOutCubic(x) {
+        return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+      },
+
+      InQuart(x) {
+        return x * x * x * x;
+      },
+
+      OutQuart(x) {
+        return 1 - Math.pow(1 - x, 4);
+      },
+
+      InOutQuart(x) {
+        return x < 0.5 ? 8 * x * x * x * x : 1 - Math.pow(-2 * x + 2, 4) / 2;
+      },
+
+      InQuint(x) {
+        return x * x * x * x * x;
+      },
+
+      OutQuint(x) {
+        return 1 - Math.pow(1 - x, 5);
+      },
+
+      InOutQuint(x) {
+        return x < 0.5
+          ? 16 * x * x * x * x * x
+          : 1 - Math.pow(-2 * x + 2, 5) / 2;
+      },
+
+      InSine(x) {
+        return 1 - Math.cos((x * this.PI) / 2);
+      },
+
+      OutSine(x) {
+        return Math.sin((x * this.PI) / 2);
+      },
+
+      InOutSine(x) {
+        return -(Math.cos(this.PI * x) - 1) / 2;
+      },
+
+      InExpo(x) {
+        return x === 0 ? 0 : Math.pow(2, 10 * x - 10);
+      },
+
+      OutExpo(x) {
+        return x === 1 ? 1 : 1 - Math.pow(2, -10 * x);
+      },
+
+      InOutExpo(x) {
+        return x === 0
+          ? 0
+          : x === 1
+          ? 1
+          : x < 0.5
+          ? Math.pow(2, 20 * x - 10) / 2
+          : (2 - Math.pow(2, -20 * x + 10)) / 2;
+      },
+
+      InCirc(x) {
+        return 1 - Math.sqrt(1 - Math.pow(x, 2));
+      },
+
+      OutCirc(x) {
+        return Math.sqrt(1 - Math.pow(x - 1, 2));
+      },
+
+      InOutCirc(x) {
+        return x < 0.5
+          ? (1 - Math.sqrt(1 - Math.pow(2 * x, 2))) / 2
+          : (Math.sqrt(1 - Math.pow(-2 * x + 2, 2)) + 1) / 2;
+      },
+
+      InBack(x) {
+        return this.c3 * x * x * x - this.c1 * x * x;
+      },
+
+      OutBack(x) {
+        return 1 + this.c3 * Math.pow(x - 1, 3) + this.c1 * Math.pow(x - 1, 2);
+      },
+
+      InOutBack(x) {
+        return x < 0.5
+          ? (Math.pow(2 * x, 2) * ((this.c2 + 1) * 2 * x - this.c2)) / 2
+          : (Math.pow(2 * x - 2, 2) * ((this.c2 + 1) * (x * 2 - 2) + this.c2) +
+              2) /
+              2;
+      },
+
+      InElastic(x) {
+        return x === 0
+          ? 0
+          : x === 1
+          ? 1
+          : -Math.pow(2, 10 * x - 10) * Math.sin((x * 10 - 10.75) * this.c4);
+      },
+
+      OutElastic(x) {
+        return x === 0
+          ? 0
+          : x === 1
+          ? 1
+          : Math.pow(2, -10 * x) * Math.sin((x * 10 - 0.75) * this.c4) + 1;
+      },
+
+      InOutElastic(x) {
+        return x === 0
+          ? 0
+          : x === 1
+          ? 1
+          : x < 0.5
+          ? -(
+              Math.pow(2, 20 * x - 10) * Math.sin((20 * x - 11.125) * this.c5)
+            ) / 2
+          : (Math.pow(2, -20 * x + 10) *
+              Math.sin((20 * x - 11.125) * this.c5)) /
+              2 +
+            1;
+      },
+
+      InBounce(x) {
+        return 1 - this.OutBounce(1 - x);
+      },
+
+      OutBounce(x) {
+        const n1 = 7.5625;
+        const d1 = 2.75;
+
+        if (x < 1 / d1) {
+          return n1 * x * x;
+        } else if (x < 2 / d1) {
+          return n1 * (x -= 1.5 / d1) * x + 0.75;
+        } else if (x < 2.5 / d1) {
+          return n1 * (x -= 2.25 / d1) * x + 0.9375;
+        } else {
+          return n1 * (x -= 2.625 / d1) * x + 0.984375;
+        }
+      },
+
+      InOutBounce(x) {
+        return x < 0.5
+          ? (1 - this.OutBounce(1 - 2 * x)) / 2
+          : (1 + this.OutBounce(2 * x - 1)) / 2;
+      },
     };
 
     // calculations
@@ -586,15 +778,13 @@
       },
 
       randomseed: function (seed) {
-        if (this.seed === undefined) {
+        if (seed !== undefined) {
+          this.seed = seed;
+        } else if (this.seed === undefined) {
           this.seed = generator.randInt(1, Number.MAX_SAFE_INTEGER);
         }
 
-        if (seed !== undefined) {
-          this.seed = seed;
-        }
-
-        var x = Math.sin(this.seed++) * 10000;
+        const x = Math.sin(this.seed++) * 10000;
 
         return x - Math.floor(x);
       },
@@ -620,8 +810,8 @@
       },
 
       pingpong: function (value, min, max) {
-        var range = max - min;
-        var range2 = range + range;
+        const range = max - min;
+        const range2 = range + range;
 
         value = value - Math.floor(value / range2) * range2;
         value = range - Math.abs(value - range);
@@ -635,18 +825,19 @@
         },
 
         cosine: function (a, b, x) {
-          var ft = x * generator.calc.pi;
-          var f = (1 - Math.cos(ft)) * 0.5;
+          const ft = x * generator.calc.pi;
+          const f = (1 - Math.cos(ft)) * 0.5;
 
           return a * (1 - f) + b * f;
         },
 
         catmullrom: function (v0, v1, v2, v3, x, distance) {
-          var xx = x / distance;
-          var P = v3 - v2 - (v0 - v1);
-          var Q = v0 - v1 - P;
-          var R = v2 - v0;
-          var t = P * xx * xx * xx + Q * xx * xx + R * xx + v1;
+          const xx = x / distance;
+          const P = v3 - v2 - (v0 - v1);
+          const Q = v0 - v1 - P;
+          const R = v2 - v0;
+
+          let t = P * xx * xx * xx + Q * xx * xx + R * xx + v1;
 
           if (t < 0) t = 0;
           if (t > 1) t = 1;
@@ -658,22 +849,32 @@
 
     generator.colormap = {
       data: null,
+      easing: null,
+      reverse: false,
       size: 255,
 
       init: function (colormap, size, callback) {
         this.data = null;
+        this.reverse = false; // must not leak from a previous "!name" colormap
         this.size = size == undefined ? width : size;
 
         if (colormap == undefined || colormap == null) {
           return colormap;
         }
 
+        if (colormap === "pickone") {
+          colormap = generator.randItemSeed(Object.keys(tgen.colormaps));          
+        }
+
         // colormap random by arrays
         if (typeof colormap == "object") {
           if (typeof colormap[0] == "object") {
             // by items rgba
-            for (var key in colormap) {
-              var item = colormap[key];
+
+            let item;
+
+            for (const key in colormap) {
+              item = colormap[key];
               item.rgba = generator.rgba(item.rgba);
               colormap[key] = item;
             }
@@ -685,57 +886,68 @@
 
         // random
         if (colormap === "random") {
-          var count = generator.randIntSeed(1, 4);
-          colormap = [];
-
-          for (var i = 0; i <= count; i++) {
-            colormap[i] = {
-              percent: parseInt((i / count) * 100),
-              rgba: [
-                generator.randIntSeed(0, 255),
-                generator.randIntSeed(0, 255),
-                generator.randIntSeed(0, 255),
-                255,
-              ],
-            };
-          }
-        }
-
-        // callback for store real params
-        if (typeof callback == "function") {
-          callback(colormap);
+          colormap = this.random();
         }
 
         if (typeof colormap == "string") {
-          var reverse = false;
-
           if (colormap.charAt(0) == "!") {
             colormap = colormap.substring(1);
-            reverse = true;
+            this.reverse = true;
           }
 
           if (typeof self.colormaps[colormap] == "function") {
-            var items = self.colormaps[colormap](size);
-            this.data = this.render(items, reverse);
+            const items = self.colormaps[colormap](size);
+            this.data = this.render(items);
           }
         }
 
         if (typeof colormap == "object") {
           this.data = this.render(colormap);
         }
+
+        // callback for store real params - keep the "!" of reversed names
+        if (typeof callback == "function") {
+          callback(
+            typeof colormap == "string" && this.reverse
+              ? "!" + colormap
+              : colormap
+          );
+        }
       },
 
-      render: function (items, reverse) {
-        var colormap = [];
+      random: function (count) {
+        count = count ? count : generator.randIntSeed(2, 7);
 
-        for (var p = 0; p < items.length - 1; p++) {
-          var current = items[p];
-          var next = items[p + 1];
-          var currentIndex = Math.round(this.size * (current.percent / 100));
-          var nextIndex = Math.round(this.size * (next.percent / 100));
+        const map = [];
 
-          for (var i = currentIndex; i <= nextIndex; i++) {
-            var idx = reverse ? this.size - i : i;
+        for (let i = 0; i <= count; i++) {
+          map[i] = {
+            percent: Number.parseInt((i / count) * 100),
+            rgba: [
+              generator.randIntSeed(0, 255),
+              generator.randIntSeed(0, 255),
+              generator.randIntSeed(0, 255),
+              255,
+            ],
+          };
+        }
+
+        return map;
+      },
+
+      render: function (items) {
+        const colormap = [];
+
+        for (let p = 0; p < items.length - 1; p++) {
+          const current = items[p];
+          const next = items[p + 1];
+          const currentIndex = Math.round(this.size * (current.percent / 100));
+          const nextIndex = Math.round(this.size * (next.percent / 100));
+
+          let idx;
+
+          for (let i = currentIndex; i <= nextIndex; i++) {
+            idx = this.reverse ? this.size - i : i;
 
             colormap[idx] = [
               current.rgba[0] +
@@ -758,15 +970,25 @@
       },
 
       get: function (index, rgba) {
-        var indexNew = generator.calc.pingpong(parseInt(index), 0, this.size);
-        var color = this.data[indexNew];
+        const indexNew = generator.calc.pingpong(
+          Number.parseInt(index),
+          0,
+          this.size
+        );
+        const color = this.data[indexNew];
 
-        // save original alpha
-        if (rgba !== undefined) {
-          color[3] = rgba[3];
+        if (!color) {
+          return [0, 0, 0, rgba !== undefined ? rgba[3] : 255];
         }
 
-        return color;
+        // Always copy — blends mutate the incoming rgba in place, and must
+        // not permanently corrupt the colormap lookup table.
+        return [
+          color[0],
+          color[1],
+          color[2],
+          rgba !== undefined ? rgba[3] : color[3],
+        ];
       },
     };
 
@@ -779,13 +1001,17 @@
     };
 
     generator.blend = function (type, rgba1, rgba2) {
-      return self.blends[type](generator, rgba1, rgba2);
+      if (self.blends[type]) {
+        return self.blends[type](generator, rgba1, rgba2);
+      }
     };
 
     // put a point, the magic is here
     generator.point = {
-      rgba: [],
-      mixed: [],
+      rgba: [0, 0, 0, 255],
+      mixed: [0, 0, 0, 255],
+      current: [0, 0, 0, 255],
+      incoming: [0, 0, 0, 255],
       blend: "opacity",
 
       colorize: function (rgba1, rgba2, level) {
@@ -812,7 +1038,7 @@
           return current;
         }
 
-        var io = input[3] / 255;
+        const io = input[3] / 255;
 
         // calc opacity
         return [
@@ -823,14 +1049,37 @@
         ];
       },
 
-      // set the pixel
+      // set the pixel — one offset read/write, no get()/set() alloc path
       set: function (x, y) {
-        var current = generator.texture.get(x, y);
+        const texture = generator.texture;
+        const data = texture.data;
+        const offset = texture.offset(x, y);
+        const current = this.current;
 
-        // calculate blend
-        if (self.blends[this.blend] !== undefined) {
+        current[0] = data[offset];
+        current[1] = data[offset + 1];
+        current[2] = data[offset + 2];
+        current[3] = data[offset + 3];
+
+        // calculate blend — copy rgba first so in-place blends cannot
+        // corrupt point.rgba / colormap entries across pixels
+        if (self.blends[this.blend] !== undefined && generator.legacy) {
+          // before 2.0: the blend result overwrote point.rgba, so the next
+          // pixel of the same shape was blended with the already blended color
           this.rgba = self.blends[this.blend](generator, current, this.rgba);
           this.mixed = this.opacity(this.rgba, current);
+        } else if (self.blends[this.blend] !== undefined) {
+          const incoming = this.incoming;
+          incoming[0] = this.rgba[0];
+          incoming[1] = this.rgba[1];
+          incoming[2] = this.rgba[2];
+          incoming[3] = this.rgba[3];
+          const blended = self.blends[this.blend](
+            generator,
+            current,
+            incoming
+          );
+          this.mixed = this.opacity(blended, current);
         } else {
           this.mixed = this.rgba;
         }
@@ -855,7 +1104,10 @@
             break;
         }
 
-        generator.texture.set(x, y, this.mixed);
+        data[offset] = this.mixed[0];
+        data[offset + 1] = this.mixed[1];
+        data[offset + 2] = this.mixed[2];
+        data[offset + 3] = this.mixed[3];
       },
 
       // get the pixel
@@ -865,12 +1117,38 @@
     };
 
     // read and modify all pixel by callback function
+    // Keep x-outer / y-inner order — seed consumption depends on it.
     generator.walk = function (func) {
-      for (var x = 0; x < width; x++) {
-        for (var y = 0; y < height; y++) {
-          var color = generator.point.get(x, y);
-          color = func(color, x, y);
-          generator.point.rgba = color;
+      const texture = generator.texture;
+      const data = texture.data;
+      const hasBlend = self.blends[generator.point.blend] !== undefined;
+      const normalize = generator.normalize;
+      const color = generator.point.current;
+
+      // Fast path: no blend — write callback result straight into the buffer
+      if (!hasBlend && normalize === "limitless") {
+        for (let x = 0; x < width; x++) {
+          for (let y = 0; y < height; y++) {
+            const offset = y * width * 4 + x * 4;
+            color[0] = data[offset];
+            color[1] = data[offset + 1];
+            color[2] = data[offset + 2];
+            color[3] = data[offset + 3];
+            const out = func(color, x, y);
+            data[offset] = out[0];
+            data[offset + 1] = out[1];
+            data[offset + 2] = out[2];
+            data[offset + 3] = out[3];
+          }
+        }
+        return;
+      }
+
+      const read = [0, 0, 0, 0];
+      for (let x = 0; x < width; x++) {
+        for (let y = 0; y < height; y++) {
+          texture.get(x, y, read);
+          generator.point.rgba = func(read, x, y);
           generator.point.set(x, y);
         }
       }
@@ -878,19 +1156,19 @@
 
     // for percent calculations
     generator.percent = function (c, max) {
-      return parseInt((c / 100) * max, 10);
+      return Number.parseInt((c / 100) * max, 10);
     };
 
     generator.percentX = function (c) {
-      return parseInt((c / 100) * width, 10);
+      return Number.parseInt((c / 100) * width, 10);
     };
 
     generator.percentY = function (c) {
-      return parseInt((c / 100) * height, 10);
+      return Number.parseInt((c / 100) * height, 10);
     };
 
     generator.percentXY = function (c) {
-      return parseInt((c / 100) * wha, 10);
+      return Number.parseInt((c / 100) * wha, 10);
     };
 
     generator.percentRGBA = function (rgbFrom, rgbTo, percent) {
@@ -908,7 +1186,7 @@
     };
 
     generator.xysize = function (i, params) {
-      var x, y, size;
+      let x, y, size;
 
       if (params.elements != undefined) {
         // x and y values from params elements array
@@ -936,11 +1214,11 @@
 
     // copy texture to image
     generator.toContext = function (context, texture) {
-      var image = context.createImageData(width, height);
-      var data = image.data;
-      var length = texture.length;
+      const image = context.createImageData(width, height);
+      const data = image.data;
+      const length = texture.length;
 
-      for (var i = 0; i < length; i += 4) {
+      for (let i = 0; i < length; i += 4) {
         data[i] = texture[i];
         data[i + 1] = texture[i + 1];
         data[i + 2] = texture[i + 2];
@@ -951,19 +1229,32 @@
     };
 
     // copy image to canvas
-    generator.toCanvas = function (texture) {
+    generator.toCanvas = function (texture, w, h) {
       if (texture === undefined || texture === null) {
         texture = generator.texture.data;
       }
 
-      var canvas = document.createElement("canvas");
+      const canvas = document.createElement("canvas");
       canvas.width = width;
       canvas.height = height;
-      var context = canvas.getContext("2d");
-      var imageData = this.toContext(context, texture);
+      const context = canvas.getContext("2d");
+      const imageData = this.toContext(context, texture);
+
       context.putImageData(imageData, 0, 0);
 
-      return canvas;
+      if (w && h) {
+        const newcanvas = document.createElement("canvas");
+        const newcontext = newcanvas.getContext("2d");
+
+        newcontext.imageSmoothingEnabled = true;
+        newcanvas.width = w;
+        newcanvas.height = h;
+        newcontext.drawImage(canvas, 0, 0, width, height, 0, 0, w, h);
+
+        return newcanvas;
+      } else {
+        return canvas;
+      }
     };
 
     // get canvas
@@ -978,10 +1269,10 @@
     // get phases (layers)
     generator.getPhases = function (func) {
       if (func) {
-        var phases = [];
-        var length = generator.layers.length;
+        const phases = [];
+        const length = generator.layers.length;
 
-        for (var i = 0; i < length; i++) {
+        for (let i = 0; i < length; i++) {
           phases.push(this.toCanvas(this.layers[i]));
         }
 
@@ -1003,82 +1294,10 @@
       return this;
     };
 
-    // save to localstorage
-    generator.history = {
-      available: function () {
-        try {
-          return (
-            window &&
-            "localStorage" in window &&
-            window.localStorage !== null &&
-            window.localStorage !== undefined
-          );
-        } catch (e) {
-          return false;
-        }
-      },
-
-      list: function () {
-        if (!this.available()) {
-          return [];
-        }
-
-        return (
-          JSON.parse(window.localStorage.getItem(self.config.historyName)) || []
-        );
-      },
-
-      last: function () {
-        if (!this.available()) {
-          return [];
-        }
-
-        return self.config.historyList[self.config.historyList.length - 1];
-      },
-
-      get: function (index) {
-        if (!this.available()) {
-          return [];
-        }
-
-        if (!self.config.historyList[index]) {
-          return null;
-        }
-
-        return self.config.historyList[index];
-      },
-
-      add: function (name) {
-        if (!self.config.historyLast) {
-          return;
-        }
-
-        if (!this.available()) {
-          return [];
-        }
-
-        var params = generator.params(name);
-
-        self.config.historyList =
-          JSON.parse(window.localStorage.getItem(self.config.historyName)) ||
-          [];
-
-        if (self.config.historyList.length >= self.config.historyLast) {
-          self.config.historyList.shift();
-        }
-
-        self.config.historyList.push(params);
-
-        window.localStorage.setItem(
-          self.config.historyName,
-          JSON.stringify(self.config.historyList)
-        );
-      },
-    };
-
     generator.params = function (name) {
       if (name == undefined) {
-        var d = new Date();
+        const d = new Date();
+
         name =
           d.getHours() +
           ":" +
@@ -1093,7 +1312,8 @@
 
       return {
         name: name,
-        version: self.version,
+        // a legacy texture keeps its version, so it renders the same way again
+        version: generator.legacy ? generator.sourceVersion : self.version,
         width: width,
         height: height,
         normalize: generator.normalize,
@@ -1101,17 +1321,75 @@
       };
     };
 
+    generator.parseLayers = function (config) {
+      if (!config.layers) {
+        return;
+      }
+
+      const items = [];
+
+      config.layers.forEach(function (layer, index) {
+        layer.items.forEach(function (item) {
+          items.push([index, item[0], item[1]]);
+        });
+      });
+
+      config.items = items;
+    };
+
+    generator.prepareConfig = function (config) {
+      if (config === undefined || config === null) {
+        config = {};
+      }
+
+      this.parseLayers(config);
+
+      let effect, values;
+
+      // parse items and set defaults
+      for (let index in config.items) {
+        effect = config.items[index][1];
+        values =
+          config.items[index][2] !== undefined &&
+          config.items[index][2] !== null
+            ? config.items[index][2]
+            : {};
+
+        if (self.defaults[effect]) {
+          for (let key in self.defaults[effect]) {
+            if (values[key] === undefined) {
+              values[key] = self.defaults[effect][key];
+
+              if (values[key] === "randomalpha") {
+                values[key] = tgen.randomRGBA();
+              }
+            }
+          }
+        }
+      }
+    };
+
     // parse params
-    generator.render = function (config, noclear) {
+    generator.render = function (configInput, progress) {
+      const configOriginal = JSON.parse(JSON.stringify(configInput));
+      this.prepareConfig(configInput);
+
+      const config = JSON.parse(JSON.stringify(configInput));
+
+      // console.log('prepared', configInput.items[0][2]);
+      // console.log('original', configOriginal.items[0][2]);
+      // console.log('progress', config.items[0][2]);
+
+      // return;
+
+      this.config = config;
       this.debug = config.debug === true ? true : false;
 
-      // call event
-      generator.event("beforeRender", config);
+      // set progress callback
+      generator.progress = progress;
 
       // store current layer
-      var layerId = 0;
-      var currentId = 0;
-      var effect, values;
+      let currentId = 0;
 
       // set canvas size;
       if (config.width != undefined) {
@@ -1122,6 +1400,13 @@
         height = config.height;
       }
 
+      // textures saved before 2.0 render in 1.x compatible mode (accumulating
+      // blend, double precision copy), so they look the same as when saved
+      generator.sourceVersion = config.version;
+      generator.legacy =
+        typeof config.version == "string" &&
+        Number.parseInt(config.version, 10) < 2;
+
       if (config.normalize != undefined) {
         generator.normalize = config.normalize;
       } else {
@@ -1130,10 +1415,7 @@
 
       checkSize();
       generator.texture = new generator.buffer(config.background);
-
-      if (noclear != true) {
-        generator.clear();
-      }
+      generator.clear();
 
       // import preset items
       if (config.preset && config.preset.name) {
@@ -1148,18 +1430,24 @@
         }
 
         if (name) {
-          var key;
-          var items = JSON.parse(JSON.stringify(tgen.presets[name].items));
+          const items = JSON.parse(JSON.stringify(tgen.presets[name].items));
 
           if (config.preset.seed) {
-            for (key in items) {
-              if (items[key][2]) {
+            for (let key in items) {
+              if (!items[key][2]) {
+                items[key][2] = {};
+              }
+
+              // defaults of the item's effect, not of the preset name
+              const itemDefaults = self.defaults[items[key][1]];
+
+              if (itemDefaults && itemDefaults.seed !== undefined) {
                 items[key][2].seed = config.preset.seed;
               }
             }
           }
 
-          for (key in config.items) {
+          for (let key in config.items) {
             items.push(config.items[key]);
           }
 
@@ -1167,159 +1455,183 @@
         }
       }
 
-      // items parse
-      for (var index in config.items) {
-        layerId = config.items[index][0];
-        effect = config.items[index][1];
-        values =
-          config.items[index][2] !== undefined ? config.items[index][2] : {};
-
-        if (layerId === null) {
-          layerId = effect === "copy" ? currentId + 1 : currentId;
-        }
-
-        if (config.seed) {
-          values.seed = config.seed * index;
-        }
-
-        if (effect == "random") {
-          effect = generator.randProperty(generator.defaults);
-        }
-
-        // if random effect
-        if (typeof effect == "object") {
-          effect = generator.randItemSeed(effect);
-        }
-
-        if (currentId != layerId) {
-          if (generator.layers[layerId] != undefined) {
-            generator.texture.data = generator.layers[layerId];
-          } else {
-            generator.texture.clear();
-          }
-          currentId = layerId;
-        }
-
-        if (generator[effect] != undefined) {
-          generator[effect](values);
-        } else if (self.effects[effect] != undefined) {
-          generator.do(effect, values, layerId);
-        } else {
-          console.warn("undefined effect: " + effect);
-        }
-
-        generator.layers[layerId] = generator.texture.export();
-      }
+      this.itemsAll = config.items.length;
 
       // call event
-      generator.event("afterRender", generator.params());
+      generator.event("before-render", {
+        config: {
+          original: configOriginal,
+          current: config,
+        },
+      });
 
-      // save to localstorage
-      generator.history.add();
+      // items parse
+      let index = 0;
+
+      generator.renderItem(index, currentId, config, name);
+
+      // call event
+      generator.event("after-render", {
+        config: generator.config,
+        original: configOriginal,
+      });
 
       return this;
     };
 
+    generator.renderItem = function (index, currentId, config, name) {
+      if (!config.items[index]) {
+        return;
+      }
+
+      let layerId = config.items[index][0];
+      let effect = config.items[index][1];
+      const values =
+        config.items[index][2] !== undefined && config.items[index][2] !== null
+          ? config.items[index][2]
+          : {};
+
+      if (layerId === null) {
+        layerId = effect === "copy" ? currentId + 1 : currentId;
+      }
+
+      if (
+        config.seed !== undefined &&
+        config.seed !== null &&
+        self.defaults[effect] &&
+        self.defaults[effect].seed !== undefined
+      ) {
+        if (values.seed === undefined || values.seed === null) {
+          values.seed = config.seed;
+        }
+      }
+
+      if (effect == "random") {
+        effect = generator.randProperty(generator.defaults);
+      }
+
+      // if random effect
+      if (typeof effect == "object") {
+        effect = generator.randItemSeed(effect);
+      }
+
+      if (currentId != layerId) {
+        if (generator.layers[layerId] != undefined) {
+          generator.texture.data = generator.layers[layerId];
+        } else {
+          generator.texture.clear();
+        }
+        currentId = layerId;
+      }
+
+      // call event
+      generator.event("before-effect", {
+        layerId: layerId,
+        itemIndex: index,
+        effect: name,
+        params: values,
+      });
+
+      if (!values.skip) {
+        if (generator[effect] != undefined) {
+          generator[effect](values);
+        } else if (self.effects[effect] != undefined) {
+          config.items[index][2] = generator.doEffect(effect, values, layerId);
+        } else {
+          console.warn("undefined effect: " + effect);
+        }
+      }
+
+      generator.layers[layerId] = generator.texture.export();
+
+      // call event
+      generator.event("after-effect", {
+        layerId: layerId,
+        itemIndex: index,
+        effect: name,
+        params: config.items[index][2],
+      });
+
+      index++;
+      generator.renderItem(index, currentId, config);
+    };
+
     // call events
     generator.event = function (eventName, data) {
-      for (var key in self.events[eventName]) {
-        var event = self.events[eventName][key];
-        if (typeof event == "function") {
-          event(generator, data);
+      if (generator.progress) {
+        data = data ? data : {};
+        data.config = generator.params();
+        data.layers = generator.layers.length;
+        data.items = generator.itemsAll;
+        data.$g = generator;
+
+        if (data.layerId !== undefined && data.layerId !== null) {
+          data.layer = generator.layers[data.layerId];
         }
+
+        generator.progress(eventName, data);
       }
     };
 
-    generator.do = function (name, params, layerId) {
-      var originalparams = params;
-
-      if (params === undefined) {
-        params = mergeParams({}, self.defaults[name]);
-      } else if (typeof params == "object") {
-        params = mergeParams(self.defaults[name], params);
+    // run an effect and return the final params (used by render)
+    generator.doEffect = function (name, params, layerId) {
+      // shorthand: [2, "copy", 0] means { layer: 0 } - a number would be
+      // lost by the spread below and the default layer used instead
+      if (
+        typeof params === "number" &&
+        self.defaults[name] &&
+        "layer" in self.defaults[name]
+      ) {
+        params = { layer: params };
       }
 
-      // setup random seed
-      params.seed =
-        params.seed !== undefined && params.seed !== null
-          ? params.seed
-          : [1, Number.MAX_SAFE_INTEGER];
-      params.seed = generator.randByArray(params.seed);
+      // deep copy - effects write the resolved values back into nested
+      // arrays (e.g. size, channels), which must not change the defaults
+      const defaults =
+        self.defaults[name] !== undefined
+          ? JSON.parse(JSON.stringify(self.defaults[name]))
+          : {};
+
+      params = {...defaults, ...params};
+
+      // setup random seed if undefined
+      if (params.seed !== undefined) {
+        params.seed =
+          params.seed !== null ? params.seed : [1, Number.MAX_SAFE_INTEGER];
+        params.seed = generator.randByArray(params.seed);
+      }
 
       // init random seed
       generator.calc.randomseed(params.seed);
 
       // check params
-      params = paramsCheck(params);
-
-      // call event
-      generator.event("beforeEffect", {
-        layer: layerId,
-        name: name,
-        params: params,
-      });
+      paramsCheck(params, name);
 
       // run effect
       if (typeof self.effects[name] === "function") {
-        params = self.effects[name](generator, params);
+        if (self.prepare[name] && typeof self.prepare[name] === "function") {
+          self.prepare[name](generator, params);
+        }
+
+        self.effects[name](generator, params);
       } else {
         console.warn("effect not callable: " + name);
       }
-
-      if (params === undefined) {
-        params = originalparams;
-      }
-
-      // call event
-      generator.event("afterEffect", {
-        layer: layerId,
-        name: name,
-        params: params,
-      });
 
       if (params && params.store !== false) {
         store(layerId, name, params);
       }
 
+      return params;
+    };
+
+    // public, chainable: generator.do("waves").do("sharpen").toCanvas()
+    generator.do = function (name, params, layerId) {
+      generator.doEffect(name, params, layerId);
+
       return generator;
     };
 
-    // generator.preset = function (name, seed) {
-
-    //     if (!name || !self.presets[name]) {
-    //         console.warn('preset not found:'.name);
-    //         return;
-    //     }
-
-    //     var params = mergeParams({}, self.presets[name]);
-    //     params.width = self.width;
-    //     params.height = self.height;
-
-    //     if (seed) {
-
-    //         for (var index in params.items) {
-
-    //             var layer = params.items[index];
-
-    //             seed++;
-
-    //             if (layer[2]) {
-    //                 params.items[index][2].seed = seed;
-    //             } else {
-    //                 params.items[index][2] = {
-    //                     seed: seed
-    //                 };
-    //             }
-    //         }
-
-    //     }
-
-    //     var texture = generator.render(params);
-
-    //     return texture;
-
-    // };
-
     return generator;
   };
-})(SeamlessTextureGenerator);
+};

@@ -1,14 +1,14 @@
-(function (tgen) {
+module.exports = function (tgen) {
   // lines2
   tgen.effect(
     "lines2",
     {
-      blend: tgen.blendFlat,
+      seed: null,
+      blend: tgen.blendFlat(),
       rgba: "randomalpha",
       type: "random",
       size: [0.1, 21],
       count: [1, 42],
-      seed: [1, Number.MAX_SAFE_INTEGER],
     },
     function ($g, params) {
       params.type = $g.randItemByArraySeed(params.type, [
@@ -16,7 +16,7 @@
         "horizontal",
       ]);
 
-      var size, percent, i;
+      let size, percent, i;
 
       for (i = 0; i < params.count; i++) {
         size = $g.randByArraySeed(params.size, true);
@@ -44,4 +44,4 @@
       return params;
     }
   );
-})(SeamlessTextureGenerator);
+};

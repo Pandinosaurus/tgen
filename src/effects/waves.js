@@ -1,9 +1,10 @@
-(function (tgen) {
+module.exports = function (tgen) {
   // waves
   tgen.effect(
     "waves",
     {
-      blend: tgen.blendSafe,
+      seed: null,
+      blend: tgen.blendSafe(),
       rgba: "randomalpha",
       level: [1, 100],
       xsines: [1, 14],
@@ -13,9 +14,11 @@
       params.xsines = $g.randIntByArraySeed(params.xsines, [1, 16]);
       params.ysines = $g.randIntByArraySeed(params.ysines, [1, 16]);
 
-      for (var x = 0; x < $g.texture.width; x++) {
-        for (var y = 0; y < $g.texture.height; y++) {
-          var c =
+      let x, y, c;
+
+      for (x = 0; x < $g.texture.width; x++) {
+        for (y = 0; y < $g.texture.height; y++) {
+          c =
             127 +
             63.5 *
               Math.sin(
@@ -47,4 +50,4 @@
       return params;
     }
   );
-})(SeamlessTextureGenerator);
+};

@@ -1,31 +1,42 @@
-(function (tgen) {
+module.exports = function (tgen) {
   tgen.preset("z-dev", {
-    width: 1024,
-    height: 512,
-    normalize: "limitless",
+    width: 256,
+    height: 256,
+
     items: [
+      [0, "fill", { rgba: [0, 0, 0] }],
       [
         0,
-        "clouds",
+        "xor",
         {
-          seed: 5129359,
+          zoom: [1, 2],
         },
       ],
       [
         0,
-        "squares",
+        "xor",
         {
-          seed: 632731,
+          zoom: [2, 4],
         },
       ],
       [
-        1,
-        "copy",
+        0,
+        "xor",
         {
-          layer: 0,
+          zoom: [4, 8],
         },
       ],
-      [1, "equirectangular", {}],
+
+      [0, "sharpen"],
+
+      [
+        0,
+        "contrast",
+        {
+          adjust: 42,
+        },
+      ],
+      [0, "colorize", { colormap: "pickone" }],
     ],
   });
-})(SeamlessTextureGenerator);
+};

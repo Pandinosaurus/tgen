@@ -1,4 +1,4 @@
-(function (tgen) {
+module.exports = function (tgen) {
   // opacity
   tgen.blend("opacity", function ($g, c, i) {
     // opacity always calculated in the engine by alpha channel
@@ -122,15 +122,6 @@
     return i;
   });
 
-  // linearburn
-  // photoshop test ok
-  tgen.blend("linearburn", function ($g, c, i) {
-    i[0] = c[0] + i[0] - 255;
-    i[1] = c[1] + i[1] - 255;
-    i[2] = c[2] + i[2] - 255;
-    return i;
-  });
-
   // softlight
   // photoshop NOT 100%
   tgen.blend("softlight", function ($g, c, i) {
@@ -160,9 +151,9 @@
 
   // backlight
   tgen.blend("backlight", function ($g, c, i) {
-    c[0] = c[0] === 0 ? 0.01 : c[0];
-    c[1] = c[1] === 0 ? 0.01 : c[1];
-    c[2] = c[2] === 0 ? 0.01 : c[2];
+    c[0] = c[0] === 0 ? 0.001 : c[0];
+    c[1] = c[1] === 0 ? 0.001 : c[1];
+    c[2] = c[2] === 0 ? 0.001 : c[2];
 
     i[0] = (255 / c[0]) * (255 / i[0]);
     i[1] = (255 / c[1]) * (255 / i[1]);
@@ -186,4 +177,37 @@
 
     return c;
   });
-})(SeamlessTextureGenerator);
+
+  // hardlight
+  tgen.blend("hardlight", function ($g, c, i) {
+    i[0] =
+      i[0] > 128
+        ? 255 - (2 * (255 - i[0]) * (255 - c[0])) / 255
+        : (c[0] * i[0] * 2) / 255;
+    i[1] =
+      i[1] > 128
+        ? 255 - (2 * (255 - i[1]) * (255 - c[1])) / 255
+        : (c[1] * i[1] * 2) / 255;
+    i[2] =
+      i[2] > 128
+        ? 255 - (2 * (255 - i[2]) * (255 - c[2])) / 255
+        : (c[2] * i[2] * 2) / 255;
+    return i;
+  });
+
+  // colordodge
+  tgen.blend("colordodge", function ($g, c, i) {
+    i[0] = i[0] >= 255 ? 255 : Math.min(255, (c[0] * 255) / (255 - i[0]));
+    i[1] = i[1] >= 255 ? 255 : Math.min(255, (c[1] * 255) / (255 - i[1]));
+    i[2] = i[2] >= 255 ? 255 : Math.min(255, (c[2] * 255) / (255 - i[2]));
+    return i;
+  });
+
+  // colorburn
+  tgen.blend("colorburn", function ($g, c, i) {
+    i[0] = i[0] <= 0 ? 0 : Math.max(0, 255 - ((255 - c[0]) * 255) / i[0]);
+    i[1] = i[1] <= 0 ? 0 : Math.max(0, 255 - ((255 - c[1]) * 255) / i[1]);
+    i[2] = i[2] <= 0 ? 0 : Math.max(0, 255 - ((255 - c[2]) * 255) / i[2]);
+    return i;
+  });
+};

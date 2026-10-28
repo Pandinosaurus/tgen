@@ -1,9 +1,10 @@
-(function (tgen) {
+module.exports = function (tgen) {
   // lines
   tgen.effect(
     "lines",
     {
-      blend: tgen.blendFlat,
+      seed: null,
+      blend: tgen.blendFlat(),
       rgba: "randomalpha",
       size: [77, 221],
       count: [21, 512],
@@ -19,17 +20,19 @@
       params.freq2c = $g.randByArraySeed(params.freq2c, true);
       params.size = $g.randByArraySeed(params.size);
 
-      for (var i = 0; i < params.count; i++) {
-        var x1 =
+      let i, x1, y1, x2, y2;
+
+      for (i = 0; i < params.count; i++) {
+        x1 =
           $g.texture.width / 2 +
           Math.sin((i / params.freq1s) * $g.calc.pi) * params.size;
-        var y1 =
+        y1 =
           $g.texture.height / 2 +
           Math.cos((i / params.freq1c) * $g.calc.pi) * params.size;
-        var x2 =
+        x2 =
           $g.texture.width / 2 +
           Math.sin((i / params.freq2s) * $g.calc.pi) * params.size;
-        var y2 =
+        y2 =
           $g.texture.height / 2 +
           Math.cos((i / params.freq2c) * $g.calc.pi) * params.size;
 
@@ -39,4 +42,4 @@
       return params;
     }
   );
-})(SeamlessTextureGenerator);
+};

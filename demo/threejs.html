@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>three.js example</title>
+
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"
+      integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/seamless-texture-generator@1.4.46/dist/tgen-with-presets.min.js"
+      integrity="sha256-VJ/uA2yQQmGArbSMGW7sVWYwEsZRUdbo1a/3YUoHLcM="
+      crossorigin="anonymous"
+    ></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.min.js"
+        }
+      }
+    </script>
+    <style>
+      body,
+      html {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+      }
+    </style>
+  </head>
+
+  <body>
+    <script type="module">
+      import * as THREE from "three";
+
+      const generator = tgen.init(256, 256);
+      const texture = generator.render({
+        preset: {
+          name: "gradients",
+          seed: null,
+        },
+      });
+
+      let camera, scene, renderer, object;
+
+      init();
+      animate();
+
+      function init() {
+        scene = new THREE.Scene();
+
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        const pointLight = new THREE.PointLight(0xffffff, 80);
+        scene.add(ambientLight);
+
+        camera = new THREE.PerspectiveCamera(
+          45,
+          window.innerWidth / window.innerHeight,
+          1,
+          2000
+        );
+        camera.position.y = 400;
+        scene.add(camera);
+        camera.add(pointLight);
+
+        const map = new THREE.CanvasTexture(texture.toCanvas());
+        map.colorSpace = THREE.SRGBColorSpace;
+        map.wrapS = map.wrapT = THREE.RepeatWrapping;
+        map.needsUpdate = true;
+        map.repeat.set(1, 1);
+
+        const material = new THREE.MeshStandardMaterial({
+          map: map,
+          metalness: 0.2,
+          roughness: 0.6,
+        });
+
+        object = new THREE.Mesh(new THREE.BoxGeometry(400, 400, 400), material);
+        object.position.set(100, 0, 0);
+        scene.add(object);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        document.body.appendChild(renderer.domElement);
+      }
+
+      function animate() {
+        requestAnimationFrame(animate);
+        render();
+      }
+
+      function render() {
+        const timer = Date.now() * 0.0007;
+
+        camera.position.x = Math.cos(timer) * 700;
+        camera.position.z = Math.sin(timer) * 700;
+        camera.lookAt(scene.position);
+
+        object.rotation.x = timer * 0.5;
+        object.rotation.y = timer * 0.25;
+        object.rotation.z = timer * 0.15;
+
+        renderer.render(scene, camera);
+      }
+    </script>
+  </body>
+</html>

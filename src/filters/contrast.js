@@ -1,13 +1,16 @@
-(function (tgen) {
+module.exports = function (tgen) {
   // contrast
   // photoshop test ok with NO legacy mode
   tgen.filter(
     "contrast",
     {
-      adjust: 50,
+      seed: null,
+      adjust: [64, 192],
     },
     function ($g, params) {
-      var adjust = (100 + params.adjust) / 100;
+      params.adjust = $g.randByArraySeed(params.adjust);
+
+      const adjust = (100 + params.adjust) / 100;
 
       $g.walk(function (color) {
         color[0] = ((color[0] / 255 - 0.5) * adjust + 0.5) * 255;
@@ -25,4 +28,4 @@
       return params;
     }
   );
-})(SeamlessTextureGenerator);
+};

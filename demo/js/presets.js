@@ -3,28 +3,33 @@ $(document).ready(function () {
   tgen.config.historyLast = 0;
 
   // initialize the generator
-  var generator = tgen.init();
+  const generator = tgen.init();
 
-  var addImage = function (key, canvas, selector) {
-    var img = '<img src="' + canvas.toDataURL("image/png") + '" />';
-    var images = $(
+  const addImage = function (key, canvas, selector) {
+    const img = '<img src="' + canvas.toDataURL("image/png") + '" />';
+    const images = $(
       '<div class="img"><small>' + key + "</small>" + img + "</div>"
     );
     $(selector).append(images);
   };
 
-  var seed = 7742101;
+  let seed = 7742101;
 
-  for (var name in tgen.presets) {
-    var preset = tgen.presets[name];
+  for (const name in tgen.presets) {
+    const preset = tgen.presets[name];
     preset.width = 128;
     preset.height = 128;
 
     // set seeds
-    for (var index in preset.items) {
-      var layer = preset.items[index];
+    for (const index in preset.items) {
+      const layer = preset.items[index];
 
       seed++;
+
+      // number param is a layer index (e.g. [2, "copy", 0]), keep it
+      if (typeof layer[2] === "number") {
+        continue;
+      }
 
       if (layer[2]) {
         preset.items[index][2].seed = seed;
@@ -35,11 +40,11 @@ $(document).ready(function () {
       }
     }
 
-    var texture = generator.render(preset);
+    const texture = generator.render(preset);
 
     console.log(preset);
 
-    addImage(preset.preset, texture.toCanvas(), "#presets");
+    addImage(name, texture.toCanvas(), "#presets");
   }
 
   $(".hideme").html("");

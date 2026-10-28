@@ -1,8 +1,9 @@
-(function (tgen) {
+module.exports = function (tgen) {
   // grayscale
   tgen.filter(
     "grayscale",
     {
+      seed: null,
       method: ["ligthness", "average", "luminosity"],
     },
     function ($g, params) {
@@ -19,7 +20,7 @@
       switch (params.method) {
         case "ligthness":
           $g.walk(function (color) {
-            var minmax =
+            let minmax =
               Math.max(color[0], color[1], color[2]) +
               Math.min(color[0], color[1], color[2]);
             return [minmax, minmax, minmax, color[3]];
@@ -28,14 +29,14 @@
 
         case "average":
           $g.walk(function (color) {
-            var avg = (color[0] + color[1] + color[2]) / 3;
+            let avg = (color[0] + color[1] + color[2]) / 3;
             return [avg, avg, avg, color[3]];
           });
           break;
 
         case "luminosity":
           $g.walk(function (color) {
-            var lum = $g.calc.luminance(color);
+            let lum = $g.calc.luminance(color);
             return [lum, lum, lum, color[3]];
           });
           break;
@@ -44,4 +45,4 @@
       return params;
     }
   );
-})(SeamlessTextureGenerator);
+};

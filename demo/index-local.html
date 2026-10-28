@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<title>Seamless texture generator</title>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="author" content="Tamas Schalk" />
+		<meta name="robots" content="index, follow" />
+		<link type="text/css" rel="stylesheet" media="all" href="css/index.css" />
+		<meta property="og:title" content="Seamless texture generator" />
+		<meta property="og:url" content="https://texture-generator.com/generator/" />
+		<meta property="og:image" content="https://texture-generator.com/img/share.jpg" />
+	</head>
+
+	<body>
+		<aside class="menu unselectable">
+			<header class="menu-brand">
+				<h1>Seamless texture generator</h1>
+				<p class="menu-meta">
+					<a rel="noopener noreferrer" target="_blank" href="https://github.com/schalkt/tgen">tgen</a>
+					<span class="tgen-version"></span>
+				</p>
+			</header>
+
+			<section class="menu-section">
+				<label for="presets">Preset</label>
+				<select id="presets">
+					<option value="random">random preset</option>
+					<option value="editor">editor</option>
+				</select>
+			</section>
+
+			<section class="menu-section menu-actions">
+				<div class="generate button button-primary">Generate</div>
+				<div class="random-seed button">Random Seed</div>
+				<div class="random-colors button">Random Colors</div>
+				<div class="editor button">Editor <span class="led" aria-hidden="true"></span></div>
+				<div class="3d button">3D preview <span class="led" aria-hidden="true"></span></div>
+				<div class="gallery button">Gallery</div>
+				<div class="history button">History <span class="history-count">0</span></div>
+			</section>
+
+			<section class="menu-section menu-preview">
+				<div class="preview-frame">
+					<button type="button" class="preview-thumb" disabled aria-label="Open full size preview">
+						<img class="preview-thumb-image" alt="Generated texture preview" hidden />
+						<span class="preview-placeholder">Generate to preview</span>
+					</button>
+					<span class="preview-spinner" aria-hidden="true"></span>
+					<button type="button" class="preview-download download" disabled aria-label="Download PNG" title="Download PNG">
+						<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+							<path d="M12 3v10.2M8.5 10.5 12 14l3.5-3.5M5 18h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+						</svg>
+					</button>
+				</div>
+				<select id="texture-size" aria-label="Size">
+					<option value="16">16 × 16</option>
+					<option value="32">32 × 32</option>
+					<option value="64">64 × 64</option>
+					<option value="128">128 × 128</option>
+					<option value="256" selected>256 × 256</option>
+					<option value="512">512 × 512</option>
+					<option value="1024">1024 × 1024</option>
+					<option value="2048">2048 × 2048</option>
+				</select>
+				<div class="upload button">Upload to Gallery</div>
+				<div class="sure">
+					<span class="ok button">Ok</span>
+					<span class="cancel button">Cancel</span>
+				</div>
+			</section>
+
+			<section class="menu-section menu-donate">
+				<div class="donate-badges">
+					<a rel="noopener noreferrer" target="_blank" href="https://www.paypal.me/schalkt" title="Donate via PayPal">
+						<img src="https://img.shields.io/badge/donate-paypal-00457c.svg?logo=paypal&amp;style=flat-square" alt="Donate via PayPal" />
+					</a>
+					<a rel="noopener noreferrer" target="_blank" href="https://revolut.me/tams9imtf" title="Donate via Revolut">
+						<img src="https://img.shields.io/badge/donate-revolut-d82c7b?logo=revolut&amp;logoColor=fff&amp;style=flat-square" alt="Donate via Revolut" />
+					</a>
+					<a rel="noopener noreferrer" target="_blank" href="https://liberapay.com/schalkt/" title="Donate via Liberapay">
+						<img src="https://img.shields.io/badge/donate-liberapay-f6c915?logo=liberapay&amp;logoColor=f6c915&amp;style=flat-square" alt="Donate via Liberapay" />
+					</a>
+				</div>
+			</section>
+
+			<footer class="menu-footer">
+				&copy; 2015–2026
+				<a rel="noopener noreferrer" target="_blank" href="https://github.com/schalkt/">tamas.schalk</a>
+			</footer>
+		</aside>
+
+		<div id="preview-lightbox" class="preview-lightbox" aria-hidden="true">
+			<div class="preview-lightbox-backdrop"></div>
+			<div class="preview-lightbox-dialog" role="dialog" aria-modal="true" aria-label="Texture preview">
+				<button type="button" class="preview-lightbox-close gallery-close" aria-label="Close preview">&times;</button>
+				<img class="preview-lightbox-image" alt="Generated texture full size" hidden />
+				<button type="button" class="preview-lightbox-download download">download</button>
+			</div>
+		</div>
+
+		<div id="gallery" class="gallery-modal" aria-hidden="true">
+			<div class="gallery-backdrop"></div>
+			<div class="gallery-dialog" role="dialog" aria-modal="true" aria-labelledby="gallery-title">
+				<header class="gallery-header">
+					<h2 id="gallery-title">Gallery</h2>
+					<button type="button" class="gallery-close" aria-label="Close gallery">&times;</button>
+				</header>
+				<div class="gallery-body">
+					<div class="images"></div>
+					<button type="button" id="loadmore" class="gallery-loadmore">Load more</button>
+				</div>
+			</div>
+		</div>
+
+		<div id="history" class="history-modal" aria-hidden="true">
+			<div class="history-backdrop"></div>
+			<div class="history-dialog" role="dialog" aria-modal="true" aria-labelledby="history-title">
+				<header class="gallery-header">
+					<h2 id="history-title">History</h2>
+					<button type="button" class="history-close gallery-close" aria-label="Close history">&times;</button>
+				</header>
+				<div class="history-body">
+					<div class="history-toolbar">
+						<label class="history-limit-control" for="history-limit">
+							<span>Limit</span>
+							<input type="number" id="history-limit" min="1" max="100" value="10" step="1" />
+						</label>
+					</div>
+					<div class="history-list"></div>
+					<p class="history-empty">No generations yet</p>
+				</div>
+			</div>
+		</div>
+
+		<div class="toast" aria-live="polite">
+			<span class="spinner"></span>
+			<div class="message"></div>
+		</div>
+
+		<div id="panel">
+			<div class="panel-bar">
+				<span><span class="highligth">Ctrl + Enter</span> = Generate</span>
+				<label class="editor-opacity-control" for="editor-opacity">
+					Opacity
+					<input type="range" id="editor-opacity" min="30" max="100" value="85" step="5" />
+				</label>
+				<span class="floatright"><a rel="noopener noreferrer" target="_blank" href="http://ace.c9.io/">Ace</a></span>
+			</div>
+
+			<div id="editor"></div>
+		</div>
+
+		<div class="overlay">
+			<span class="spinner"></span>
+		</div>
+
+		<div id="three"></div>
+		<div class="preview3d-controls">
+			<div class="preview3d-toolbar">
+				<button type="button" class="changescene">Change scene</button>
+				<button type="button" class="pause3d">Pause</button>
+				<button type="button" class="reset3d">Reset</button>
+				<label class="fps-control" for="preview3d-fps">
+					FPS
+					<select id="preview3d-fps">
+						<option value="15">15</option>
+						<option value="30" selected>30</option>
+						<option value="40">40</option>
+						<option value="50">50</option>
+						<option value="60">60</option>
+						<option value="100">100</option>
+						<option value="0">Max</option>
+					</select>
+					<span class="fps-actual" hidden></span>
+				</label>
+				<label class="env-preset-control" for="env-preset">
+					Env
+					<select id="env-preset">
+						<option value="default" selected>Default</option>
+						<option value="dual">2 lights</option>
+						<option value="single">1 strong light</option>
+						<option value="soft">Soft fill</option>
+						<option value="dramatic">Dramatic</option>
+					</select>
+				</label>
+			</div>
+			<div class="preview3d-fx">
+				<label class="fx-check">
+					<input type="checkbox" id="fx-bloom" />
+					Bloom
+				</label>
+				<label class="fx-check">
+					<input type="checkbox" id="fx-dof" />
+					DoF
+				</label>
+			</div>
+			<div class="preview3d-materials">
+				<label class="mat-preset-control" for="mat-preset">
+					<span>Preset</span>
+					<select id="mat-preset">
+						<option value="default">Default</option>
+						<option value="matte">Matte</option>
+						<option value="glossy" selected>Glossy</option>
+						<option value="metal">Metal</option>
+						<option value="custom">Custom</option>
+					</select>
+				</label>
+				<label class="mat-preset-control" for="mat-mapping">
+					<span>Mapping</span>
+					<select id="mat-mapping">
+						<option value="uv" selected>UV</option>
+						<option value="triplanar">Triplanar</option>
+						<option value="box">Box</option>
+					</select>
+				</label>
+				<label class="mat-control">
+					<span>Shininess</span>
+					<input type="range" id="mat-shininess" min="0" max="100" value="12" step="1" />
+					<span class="mat-value" data-for="mat-shininess">12</span>
+				</label>
+				<label class="mat-control">
+					<span>Bump</span>
+					<input type="range" id="mat-bumpscale" min="0" max="10" value="1.77" step="0.01" />
+					<span class="mat-value" data-for="mat-bumpscale">1.77</span>
+				</label>
+				<label class="mat-control">
+					<span>Reflect</span>
+					<input type="range" id="mat-reflectivity" min="0" max="1" value="0.25" step="0.01" />
+					<span class="mat-value" data-for="mat-reflectivity">0.25</span>
+				</label>
+				<label class="mat-control">
+					<span>Specular</span>
+					<input type="range" id="mat-specular" min="0" max="255" value="241" step="1" />
+					<span class="mat-value" data-for="mat-specular">241</span>
+				</label>
+				<label class="mat-control">
+					<span>Repeat</span>
+					<input type="range" id="mat-repeat" min="1" max="16" value="1" step="1" />
+					<span class="mat-value" data-for="mat-repeat">1</span>
+				</label>
+				<label class="mat-control mat-check">
+					<input type="checkbox" id="mat-metal" />
+					Metal
+				</label>
+				<button type="button" class="export-material">Export material</button>
+			</div>
+		</div>
+
+		<script
+			src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"
+			integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
+			crossorigin="anonymous"
+		></script>
+		<script
+			src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.44.0/ace.min.js"
+			integrity="sha512-nX2VMiv7R3QlrD1gIskPrBThnEgNbKxfzD1kOMm/cNaeHBt05SlNhNtxMeBHzcXV1DJ/Y1eTzE136o+1Ezu9/g=="
+			crossorigin="anonymous"
+			referrerpolicy="no-referrer"
+		></script>
+		<script
+			src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.44.0/ext-beautify.min.js"
+			integrity="sha512-7CrD5nD9TLc9DetdVY3T3QUxaqbr15LmUhWhStbGQ86vQfCDXVD0WiCWK5Bm/fDmsvcEQYOsxdtAUaVp0vyPJA=="
+			crossorigin="anonymous"
+			referrerpolicy="no-referrer"
+		></script>
+		<script
+			src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.44.0/mode-javascript.min.js"
+			integrity="sha512-FJmLnY6ZKylY0ORBJgG1e8hQdQ0rBsa8MHznKXMN0wXge+bsW+XokCcJyDMlXnM7X3JkvqqHy+3KVyxqSvKe7Q=="
+			crossorigin="anonymous"
+			referrerpolicy="no-referrer"
+		></script>
+		<script
+			src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.44.0/theme-monokai.min.js"
+			integrity="sha512-g9yptARGYXbHR9r3kTKIAzF+vvmgEieTxuuUUcHC5tKYFpLR3DR+lsisH2KZJG2Nwaou8jjYVRdbbbBQI3Bo5w=="
+			crossorigin="anonymous"
+			referrerpolicy="no-referrer"
+		></script>
+
+		<script src="./../dist/tgen-with-presets.min.js"></script>
+		<script type="importmap">
+			{
+				"imports": {
+					"three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.min.js",
+					"three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"
+				}
+			}
+		</script>
+		<script type="module">
+			import * as THREE from "three";
+			import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+			import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+			import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+			import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+			import { BokehPass } from "three/addons/postprocessing/BokehPass.js";
+			import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+			window.THREE = THREE;
+			window.OrbitControls = OrbitControls;
+			window.EffectComposer = EffectComposer;
+			window.RenderPass = RenderPass;
+			window.UnrealBloomPass = UnrealBloomPass;
+			window.BokehPass = BokehPass;
+			window.OutputPass = OutputPass;
+			await new Promise(function (resolve, reject) {
+				const script = document.createElement("script");
+				script.src = "js/index.js";
+				script.onload = resolve;
+				script.onerror = reject;
+				document.body.appendChild(script);
+			});
+		</script>
+	</body>
+</html>
